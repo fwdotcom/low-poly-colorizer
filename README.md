@@ -72,10 +72,10 @@ can start right away.
 
 ## 3. The panel at a glance
 
-The whole workflow lives in the N-panel **LPC ▸ LPC Palette**:
+The whole workflow lives in the N-panel **LPC ▸ Low Poly Colorizer**:
 
 ```
-┌─ LPC Palette ─────────────────────────────┐
+┌─ Low Poly Colorizer ───────────────────────┐
 │ [Swatch] [X] [Y]              [🎨 Picker]  │  ← current color + cell
 │ 3 faces in 1 object selected               │  ← selection hint
 │                                            │

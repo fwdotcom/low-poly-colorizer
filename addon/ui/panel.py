@@ -4,13 +4,14 @@
 
 Panel layout:
 
-    LPC Palette          color row + preset list, then the ACTIVE preset's
+    Low Poly Colorizer   color row + preset list, then the ACTIVE preset's
                          parameter sliders (always visible -- edits
                          propagate live to all faces using it via scatter,
                          model/faces.py), then the button row
                          (Assign / Select / Deselect, the latter two Edit
                          Mode only) + Sample
-      [no header]        Settings button
+      [no header]        UV-fix warning (when needed), the Export target +
+                         button, and the Settings button
 
 The rarely-edited values -- palette parameters (Grid / Base Color /
 Tint+Shade) and the global material values -- live in the modal
@@ -153,7 +154,7 @@ class LPC_MT_presets(bpy.types.Menu):
 class LPC_PT_palette_panel(bpy.types.Panel):
     """Main panel: the everyday tools -- color row + preset list."""
 
-    bl_label = "LPC Palette"
+    bl_label = "Low Poly Colorizer"
     bl_idname = "LPC_PT_palette_panel"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
