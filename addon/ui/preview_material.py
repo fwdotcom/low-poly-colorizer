@@ -137,10 +137,20 @@ def is_lpc_managed(material):
     return material is not None and material.get(_MANAGED_KEY) == 1
 
 
+def _find_managed_material():
+    """The shared lpc material if it exists -- identified by the managed stamp,
+    NOT by name (a foreign datablock may squat MATERIAL_NAME). There is only
+    ever one; the first managed material wins."""
+    for material in bpy.data.materials:
+        if is_lpc_managed(material):
+            return material
+    return None
+
+
 def update_globals(scene):
     """Push the scene globals onto the shared material's value nodes
     (Invariant 8). No-op if the material does not exist yet."""
-    material = bpy.data.materials.get(MATERIAL_NAME)
+    material = _find_managed_material()
     if material is None or not material.use_nodes:
         return
     g = scene.lpc_globals
@@ -154,14 +164,12 @@ def update_globals(scene):
 
 
 def ensure_lpc_material(scene):
-    """The shared material, created + stamped + fake-user (so it survives with
-    no users) + globals-synced if missing or built by an older version. Adopts
-    an existing same-named datablock only if it is one of ours."""
-    material = bpy.data.materials.get(MATERIAL_NAME)
-    if material is not None and not is_lpc_managed(material):
-        # A foreign material squats our name -- make a fresh one (Blender
-        # auto-suffixes the clash) rather than clobbering the user's nodes.
-        material = None
+    """The shared material, identified by its managed stamp (NOT by name, so a
+    foreign datablock squatting MATERIAL_NAME never spawns a duplicate),
+    created + stamped + fake-user + globals-synced if missing or built by an
+    older version. A fresh material is named MATERIAL_NAME (Blender
+    auto-suffixes if that name is already taken)."""
+    material = _find_managed_material()
     if material is None:
         material = bpy.data.materials.new(MATERIAL_NAME)
     material.use_nodes = True
