@@ -1,0 +1,69 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+"""Addon-wide constants.
+
+Tuning values that users rarely or never change, so no UI is needed for
+them. Collected here instead of being scattered as magic numbers through
+the modules.
+"""
+
+# Namespace prefix for every NAME the add-on writes into mesh/material
+# data -- exposed so a user can resolve name clashes in their .blend and
+# in exports by changing it in this one place. It controls exactly the
+# names that show up in the .blend data and get carried into exports:
+#   - the per-face data names (model/faces.py): lpc_color (vertex colour),
+#     lpc_index (preset uid), lpc_uv0 / lpc_uv1 (param UV maps)
+#   - the shared material datablock + its node names (ui/preview_material.py):
+#     lpc_material, the emission-factor / clearcoat-roughness value nodes, and
+#     the node-version + managed custom-prop keys (lpc_nodes_version,
+#     lpc_managed).
+#
+# IMPORTANT: choose this BEFORE painting any faces. Changing it on a file
+# that already has painted faces orphans the existing lpc_* data (fresh ones
+# are recreated under the new names) and unlinks the shared material's nodes
+# from them. There is no automatic migration.
+#
+# NOT controlled by this knob (and correctly so): the Scene/WindowManager
+# custom properties (scene.lpc_presets, ...) are add-on-private config --
+# not mesh data, never exported -- and are accessed as Python attributes,
+# so they can't derive from a constant without getattr/setattr at every
+# call site; operator bl_idnames use the dotted "lpc." namespace (runtime
+# only, not stored in the .blend). UI labels keep their own wording.
+PREFIX = "lpc_"
+
+# Picker: frame around the palette grid.
+PICKER_FRAME_COLOR = (0.1, 0.1, 0.1, 1.0)  # RGBA, dark grey
+PICKER_FRAME_WIDTH = 3.0  # frame thickness in pixels (float; scaled by ui_scale)
+
+# Default palette parameters for a fresh file. These seed the
+# LPC_PaletteParams defaults (picker/interface.py); the user can still change
+# them per scene in the Settings dialog.
+DEFAULT_PALETTE_COLS = 16          # hue columns (excluding the greyscale column)
+DEFAULT_PALETTE_ROWS = 9
+DEFAULT_PALETTE_ADD_GREYSCALE = True
+DEFAULT_PALETTE_SATURATION = 1.0   # middle row (base color)
+DEFAULT_PALETTE_BRIGHTNESS = 1.0   # middle row (base color)
+DEFAULT_PALETTE_TINT = 0.8         # how far the top row goes toward white
+DEFAULT_PALETTE_SHADE = 0.8        # how far the bottom row goes toward black
+
+# Default global material values for a fresh file (seed LPC_Globals,
+# model/presets.py); editable per scene in the Settings dialog.
+DEFAULT_EMISSION_FACTOR = 1.0      # global multiplier on every preset's emission
+DEFAULT_CLEARCOAT_ROUGHNESS = 0.0  # project-wide coat roughness
+
+# Default presets, loaded via "Load Default Presets". Edit or
+# extend freely. The format is exactly the "presets" list of an exported
+# preset JSON file, so entries can be copied between here and exports.
+# A preset always defines ALL four parameters (0..1 each), so every
+# entry lists all of them explicitly -- missing or unknown keys raise on
+# load, so nothing slips through silently.
+DEFAULT_PRESETS = (
+    {"name": "Solid",
+     "roughness": 0.8, "metallic": 0.0, "emission": 0.0, "clearcoat": 0.0},
+    {"name": "Metallic",
+     "roughness": 0.3, "metallic": 1.0, "emission": 0.0, "clearcoat": 0.0},
+    {"name": "Clearcoat",
+     "roughness": 0.4, "metallic": 0.0, "emission": 0.0, "clearcoat": 1.0},
+    {"name": "Emission",
+     "roughness": 0.8, "metallic": 0.0, "emission": 1.0, "clearcoat": 0.0},
+)
