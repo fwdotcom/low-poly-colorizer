@@ -347,10 +347,12 @@ color + one preset for the **whole mesh**:
 
 1. Set the mesh's surface Material Override to `lpc_material_singlecolor.tres`.
 2. On its `MeshInstance3D`, set the **instance shader parameters**
-   `lpc_palette_cell` (e.g. `(3, 5)`) and `lpc_preset_position` (e.g. `1`) –
-   see the comment block in the exported `lpc_shader_singlecolor.gdshader` for
-   which number corresponds to which preset name (re-export after adding,
-   renaming, or deleting a preset to refresh it).
+   `lpc_palette_cell_x` / `lpc_palette_cell_y` (e.g. `3` / `5`) and
+   `lpc_preset_position` (e.g. `1`) – see the comment block in the exported
+   `lpc_shader_singlecolor.gdshader` for which number corresponds to which
+   preset name (re-export after adding, renaming, or deleting a preset to
+   refresh it). All three are clamped to the actual palette/preset count via
+   `hint_range`, so the Inspector won't let you pick an out-of-range value.
 3. Optionally override `lpc_emission_override` (any value ≥ 0 replaces the
    preset's own emission for that instance; `-1` – the default – uses the
    preset's value).

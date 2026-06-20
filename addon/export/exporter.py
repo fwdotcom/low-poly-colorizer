@@ -71,13 +71,24 @@ def build_context(scene):
     left untouched, unused keys here are simply ignored."""
     g = scene.lpc_globals
     cols, rows = model_palette.cell_count(picker_interface.params_from_scene(scene))
+    preset_count = max(len(scene.lpc_presets), 1)
     return {
         "name": EXPORT_MATERIAL_NAME,
         "emission_factor": _fmt(g.emission_factor),
         "clearcoat_roughness": _fmt(g.clearcoat_roughness),
-        "preset_count": str(max(len(scene.lpc_presets), 1)),
+        "preset_count": str(preset_count),
+        # *_max are the highest VALID index (count - 1) -- only useful as
+        # `hint_range` upper bounds on the singlecolor shader's instance
+        # uniforms (lpc_preset_position, lpc_palette_cell_x/y), clamping
+        # hand-typed Inspector values to what the exported LUT/palette
+        # textures actually contain. Godot's hint_range only accepts
+        # int/float uniforms, not vectors -- hence cell_x/y as two
+        # separate placeholders rather than one vec2.
+        "preset_count_max": str(preset_count - 1),
         "palette_cols": str(cols),
         "palette_rows": str(rows),
+        "palette_cols_max": str(cols - 1),
+        "palette_rows_max": str(rows - 1),
         "palette_image_filename": PALETTE_IMAGE_FILENAME,
         "preset_lut_image_filename": PRESET_LUT_IMAGE_FILENAME,
         "preset_legend": _preset_legend(scene),
@@ -97,35 +108,26 @@ def export_fingerprint(scene):
     return repr((build_context(scene), lut, palette_params))
 
 
-# Last-export fingerprint per scene (by name), for the Export button's
-# dirty check -- deliberately PLAIN PYTHON STATE, not a bpy.props property
-# on Scene. A bpy property write only "sticks" across an undo if it lands
-# inside an undo-tracked snapshot; `LPC_OT_export` pushes no undo step of
-# its own (there is nothing meaningful to undo -- the files are already on
-# disk), so its write only ever rides along with whatever snapshot the
-# NEXT undo-tracked edit happens to take. Undoing past THAT edit jumps back
-# to the snapshot taken BEFORE the export ran, reverting the stored
-# fingerprint to its stale pre-export value even though e.g. a preset's
-# roughness on that same snapshot correctly goes back to the right number
-# -- exactly the "slider reverts, button stays red" bug this avoids. Plain
-# module state is untouched by Blender's undo system entirely, so the
-# comparison stays correct regardless of how the user reached the current
-# values. Lost on Blender restart -- a freshly opened file reads as dirty
-# until exported again in THIS session, which is the safe default anyway
-# (nothing guarantees the on-disk files still match after a restart).
-_last_export_fingerprints = {}
-
-
 def is_export_dirty(scene):
     """True if `scene`'s current export-relevant state no longer matches
-    what was exported last (in this session) -- the Export button's red
-    highlight. Computed live on every panel redraw, never toggled, so
-    undo/redo/manual reverts are reflected automatically."""
-    return _last_export_fingerprints.get(scene.name) != export_fingerprint(scene)
+    `scene.lpc_export_fingerprint` (set at the last successful export) --
+    the Export button's red highlight. Computed live on every panel
+    redraw, never toggled, so undo/redo/manual reverts are reflected
+    automatically. Stored as a real Scene property (not plain Python
+    state) so it persists across saves -- safe to do only because
+    `LPC_OT_export` is itself undo-registered (see its bl_options), which
+    gives the property write its own undo-snapshot boundary; without that,
+    a later undo could jump past the export to a stale pre-export snapshot
+    even though e.g. a preset's roughness on that same snapshot correctly
+    reverts (the property and the data it describes would desync)."""
+    try:
+        return export_fingerprint(scene) != scene.lpc_export_fingerprint
+    except AttributeError:
+        return False  # lpc_* properties unexpectedly missing -- fail safe, not loud
 
 
 def _mark_exported(scene):
-    _last_export_fingerprints[scene.name] = export_fingerprint(scene)
+    scene.lpc_export_fingerprint = export_fingerprint(scene)
 
 
 def write_textures(scene, out_dir):
@@ -201,7 +203,11 @@ class LPC_OT_export(bpy.types.Operator):
 
     bl_idname = "lpc.export"
     bl_label = "Export"
-    bl_options = {"REGISTER"}
+    # UNDO (not just REGISTER): writes scene.lpc_export_fingerprint
+    # (is_export_dirty), which needs its own undo-snapshot boundary so a
+    # later undo can't jump past it to a stale pre-export value -- see
+    # is_export_dirty's docstring.
+    bl_options = {"REGISTER", "UNDO"}
 
     # Directory picker (every output filename is fixed by the templates).
     directory: bpy.props.StringProperty(subtype="DIR_PATH")

@@ -91,6 +91,8 @@ def _redraw_on_undo_redo(*_args):
     if bpy.context.window is None:  # background mode: no screen to redraw
         return
     for window in bpy.context.window_manager.windows:
+        if window.screen is None:  # transient window mid construction/teardown
+            continue
         for area in window.screen.areas:
             if area.type == "VIEW_3D":
                 area.tag_redraw()
@@ -118,6 +120,16 @@ def register():
         description="Which template set the Export button writes",
         items=export_exporter.EXPORT_TARGET_ITEMS,
     )
+    bpy.types.Scene.lpc_export_fingerprint = bpy.props.StringProperty(
+        name="Last Export Fingerprint", default="",
+        description="Snapshot of every value baked into the exported "
+        "files as of the last successful export (export.exporter."
+        "export_fingerprint) -- compared live against the current scene "
+        "to decide whether the Export button should flag as out of date. "
+        "A real Scene property (persists across saves) rather than "
+        "process-only state, safe because LPC_OT_export is itself "
+        "undo-registered",
+    )
     bpy.types.Scene.lpc_palette_params = bpy.props.PointerProperty(
         type=picker_interface.LPC_PaletteParams
     )
@@ -126,10 +138,9 @@ def register():
     )
     if _seed_presets_on_load not in bpy.app.handlers.load_post:
         bpy.app.handlers.load_post.append(_seed_presets_on_load)
-    if _redraw_on_undo_redo not in bpy.app.handlers.undo_post:
-        bpy.app.handlers.undo_post.append(_redraw_on_undo_redo)
-    if _redraw_on_undo_redo not in bpy.app.handlers.redo_post:
-        bpy.app.handlers.redo_post.append(_redraw_on_undo_redo)
+    for handlers in (bpy.app.handlers.undo_post, bpy.app.handlers.redo_post):
+        if _redraw_on_undo_redo not in handlers:
+            handlers.append(_redraw_on_undo_redo)
     # Seed the file that is already open (install / Blender start). Deferred
     # via a timer because data must not be mutated during registration; not
     # in background (no main loop, and tests manage their own presets).
@@ -140,14 +151,14 @@ def register():
 def unregister():
     if bpy.app.timers.is_registered(_seed_on_enable):
         bpy.app.timers.unregister(_seed_on_enable)
-    if _redraw_on_undo_redo in bpy.app.handlers.redo_post:
-        bpy.app.handlers.redo_post.remove(_redraw_on_undo_redo)
-    if _redraw_on_undo_redo in bpy.app.handlers.undo_post:
-        bpy.app.handlers.undo_post.remove(_redraw_on_undo_redo)
+    for handlers in (bpy.app.handlers.undo_post, bpy.app.handlers.redo_post):
+        if _redraw_on_undo_redo in handlers:
+            handlers.remove(_redraw_on_undo_redo)
     if _seed_presets_on_load in bpy.app.handlers.load_post:
         bpy.app.handlers.load_post.remove(_seed_presets_on_load)
     del bpy.types.WindowManager.lpc_picker_result
     del bpy.types.Scene.lpc_palette_params
+    del bpy.types.Scene.lpc_export_fingerprint
     del bpy.types.Scene.lpc_export_target
     del bpy.types.Scene.lpc_globals
     del bpy.types.Scene.lpc_preset_next_uid

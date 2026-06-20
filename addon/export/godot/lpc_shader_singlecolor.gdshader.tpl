@@ -18,23 +18,27 @@ shader_type spatial;
 
 uniform float emission_factor : hint_range(0.0, 16.0) = 1.0;
 uniform float clearcoat_roughness_value : hint_range(0.0, 1.0) = 0.0;
-uniform vec2 lpc_palette_size = vec2({{palette_cols}}.0, {{palette_rows}}.0);
 
-// Raw cell coordinates (e.g. (3.0, 5.0)), not a pre-normalized UV -- friendlier
-// to type by hand in the inspector than a 0..1 value.
-instance uniform vec2 lpc_palette_cell = vec2(0.0, 0.0);
+// Raw cell coordinates (e.g. x=3, y=5), not a pre-normalized UV -- actual
+// int uniforms (clean Inspector spinners, no meaningless decimal point)
+// clamped to the actual palette grid via Godot's hint_range. Two scalars,
+// not one ivec2/vec2: hint_range only accepts int/float uniforms, not
+// vector types, and cols/rows can legitimately differ.
+instance uniform int lpc_palette_cell_x : hint_range(0, {{palette_cols_max}}) = 0;
+instance uniform int lpc_palette_cell_y : hint_range(0, {{palette_rows_max}}) = 0;
 
 // lpc_preset_position legend (list order at the time of the last export --
 // re-export after adding/renaming/deleting a preset to refresh this):
 {{preset_legend}}
-instance uniform float lpc_preset_position = 0.0;
+instance uniform int lpc_preset_position : hint_range(0, {{preset_count_max}}) = 0;
 // -1.0 = use the preset's own emission value; any other value overrides it.
-instance uniform float lpc_emission_override = -1.0;
+instance uniform float lpc_emission_override : hint_range(-1.0, 1.0) = -1.0;
 
 void fragment() {
-    vec2 uv = (lpc_palette_cell + 0.5) / lpc_palette_size;
+    vec2 cell = vec2(float(lpc_palette_cell_x), float(lpc_palette_cell_y));
+    vec2 uv = (cell + 0.5) / LPC_PALETTE_SIZE;
     vec3 albedo = lpc_sample_palette(uv);
-    vec4 preset = lpc_sample_preset(lpc_preset_position);
+    vec4 preset = lpc_sample_preset(float(lpc_preset_position));
     float emission_value = lpc_emission_override < 0.0 ? preset.w : lpc_emission_override;
     ALBEDO = albedo;
     ROUGHNESS = preset.x;

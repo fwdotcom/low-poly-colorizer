@@ -20,11 +20,15 @@
 uniform sampler2D lpc_palette_tex : filter_nearest, repeat_disable;
 uniform sampler2D lpc_preset_lut_tex : filter_nearest, repeat_disable;
 const int LPC_PRESET_COUNT = {{preset_count}};
+// (cols, rows) of the palette grid -- only the singlecolor variant needs
+// this (to turn a hand-set cell into a UV), but it lives here alongside
+// LPC_PRESET_COUNT so every project-wide export constant is in one place.
+const vec2 LPC_PALETTE_SIZE = vec2({{palette_cols}}.0, {{palette_rows}}.0);
 
 // `uv` is already a normalized, texel-center 0..1 coordinate -- no division
 // needed here. The multicolor variant gets it straight from a UV map
 // (baked in by model/faces.encode_palette_uv at paint time); the
-// singlecolor variant computes it from a hand-set cell + the palette size.
+// singlecolor variant computes it from a hand-set cell + LPC_PALETTE_SIZE.
 vec3 lpc_sample_palette(vec2 uv) {
     return textureLod(lpc_palette_tex, uv, 0.0).rgb;
 }
