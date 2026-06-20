@@ -78,6 +78,24 @@ def _seed_on_enable():
     return None
 
 
+@persistent
+def _redraw_on_undo_redo(*_args):
+    """Force every 3D-viewport area (where the N-panel lives) to redraw
+    after an undo/redo step. The Export button's dirty state
+    (export.exporter.is_export_dirty) is computed live in the panel's
+    draw() rather than bound via a watched `.prop()`, so Blender does not
+    reliably know to redraw that region on its own after undo/redo
+    restores a preset/palette/globals value -- without this the button can
+    keep showing red (or stay unhighlighted) after an undo until something
+    else happens to trigger a redraw."""
+    if bpy.context.window is None:  # background mode: no screen to redraw
+        return
+    for window in bpy.context.window_manager.windows:
+        for area in window.screen.areas:
+            if area.type == "VIEW_3D":
+                area.tag_redraw()
+
+
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
@@ -108,6 +126,10 @@ def register():
     )
     if _seed_presets_on_load not in bpy.app.handlers.load_post:
         bpy.app.handlers.load_post.append(_seed_presets_on_load)
+    if _redraw_on_undo_redo not in bpy.app.handlers.undo_post:
+        bpy.app.handlers.undo_post.append(_redraw_on_undo_redo)
+    if _redraw_on_undo_redo not in bpy.app.handlers.redo_post:
+        bpy.app.handlers.redo_post.append(_redraw_on_undo_redo)
     # Seed the file that is already open (install / Blender start). Deferred
     # via a timer because data must not be mutated during registration; not
     # in background (no main loop, and tests manage their own presets).
@@ -118,6 +140,10 @@ def register():
 def unregister():
     if bpy.app.timers.is_registered(_seed_on_enable):
         bpy.app.timers.unregister(_seed_on_enable)
+    if _redraw_on_undo_redo in bpy.app.handlers.redo_post:
+        bpy.app.handlers.redo_post.remove(_redraw_on_undo_redo)
+    if _redraw_on_undo_redo in bpy.app.handlers.undo_post:
+        bpy.app.handlers.undo_post.remove(_redraw_on_undo_redo)
     if _seed_presets_on_load in bpy.app.handlers.load_post:
         bpy.app.handlers.load_post.remove(_seed_presets_on_load)
     del bpy.types.WindowManager.lpc_picker_result

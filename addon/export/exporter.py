@@ -28,6 +28,7 @@ import bpy
 from . import registry
 from .. import constants
 from ..model import palette as model_palette
+from ..model import presets as model_presets
 from ..picker import interface as picker_interface
 from ..ui import preview_material
 
@@ -81,6 +82,50 @@ def build_context(scene):
         "preset_lut_image_filename": PRESET_LUT_IMAGE_FILENAME,
         "preset_legend": _preset_legend(scene),
     }
+
+
+def export_fingerprint(scene):
+    """Deterministic snapshot of every value that ends up in the exported
+    files -- `build_context` (covers preset names/count, globals, palette
+    grid size) plus the preset LUT pixels (covers preset VALUES, which
+    `build_context` only counts) plus the palette params (a stand-in for
+    the palette pixels themselves -- `model_palette.build_pixels` is a pure
+    function of them, so they carry the same information without hashing
+    the whole pixel array)."""
+    lut = tuple(round(v, 6) for v in model_presets.build_preset_lut_pixels(scene))
+    palette_params = tuple(sorted(picker_interface.params_from_scene(scene).items()))
+    return repr((build_context(scene), lut, palette_params))
+
+
+# Last-export fingerprint per scene (by name), for the Export button's
+# dirty check -- deliberately PLAIN PYTHON STATE, not a bpy.props property
+# on Scene. A bpy property write only "sticks" across an undo if it lands
+# inside an undo-tracked snapshot; `LPC_OT_export` pushes no undo step of
+# its own (there is nothing meaningful to undo -- the files are already on
+# disk), so its write only ever rides along with whatever snapshot the
+# NEXT undo-tracked edit happens to take. Undoing past THAT edit jumps back
+# to the snapshot taken BEFORE the export ran, reverting the stored
+# fingerprint to its stale pre-export value even though e.g. a preset's
+# roughness on that same snapshot correctly goes back to the right number
+# -- exactly the "slider reverts, button stays red" bug this avoids. Plain
+# module state is untouched by Blender's undo system entirely, so the
+# comparison stays correct regardless of how the user reached the current
+# values. Lost on Blender restart -- a freshly opened file reads as dirty
+# until exported again in THIS session, which is the safe default anyway
+# (nothing guarantees the on-disk files still match after a restart).
+_last_export_fingerprints = {}
+
+
+def is_export_dirty(scene):
+    """True if `scene`'s current export-relevant state no longer matches
+    what was exported last (in this session) -- the Export button's red
+    highlight. Computed live on every panel redraw, never toggled, so
+    undo/redo/manual reverts are reflected automatically."""
+    return _last_export_fingerprints.get(scene.name) != export_fingerprint(scene)
+
+
+def _mark_exported(scene):
+    _last_export_fingerprints[scene.name] = export_fingerprint(scene)
 
 
 def write_textures(scene, out_dir):
@@ -184,6 +229,7 @@ class LPC_OT_export(bpy.types.Operator):
         except (OSError, ValueError) as exc:
             self.report({"ERROR"}, f"Export failed: {exc}")
             return {"CANCELLED"}
+        _mark_exported(scene)
 
         label = entry["label"]
         broken = _uv_problem_count(scene)

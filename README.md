@@ -279,6 +279,16 @@ For **Godot Materials**, seven files are produced:
 The export writes **only** these files. The geometry with its per-face data
 reaches Godot separately via the `.blend` import (see the next section).
 
+> **When do I need to re-export?** Only when something that ends up *in
+> these seven files* changed: preset **values** (sliders), the preset
+> **list** (add/delete/duplicate/import/load defaults – the preset count is
+> baked into the shader), palette **settings**, or the **globals**
+> (emission factor / clearcoat roughness). Re-assigning *which* preset a
+> face uses is pure mesh data – it needs the `.blend` saved + reimported in
+> Godot, **not** a re-export (see [Godot integration](#11-godot-integration)).
+> The **Export button turns red** whenever something export-relevant has
+> changed since the last export, so you don't have to track this by hand.
+
 > If the export reports a **UV warning**, see [Fix UV Maps](#12-fix-uv-maps).
 
 > **Upgrading from an older version:** painted faces store a *reference*

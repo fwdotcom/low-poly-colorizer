@@ -20,6 +20,7 @@ Tint+Shade) and the global material values -- live in the modal
 
 import bpy
 
+from ..export import exporter as export_exporter
 from ..model import presets as model_presets
 from ..ops import assign_sample as ops_assign_sample
 
@@ -249,14 +250,20 @@ class LPC_PT_footer(bpy.types.Panel):
             box.operator("lpc.fix_uv_maps", icon="GROUP_UVS")
 
         # Export: right-aligned "Export" label, then the template set (Godot
-        # is one of possibly several engines) + the Export button.
+        # is one of possibly several engines) + the Export button. The
+        # button alone (not the target dropdown) goes red whenever the
+        # CURRENT scene's fingerprint no longer matches the one stored at
+        # the last export -- computed live so undo/redo/manual reverts are
+        # reflected automatically, not toggled by the edit paths.
         split = layout.split(factor=0.3, align=True)
         head = split.row()
         head.alignment = "RIGHT"
         head.label(text="Export")
         body = split.row(align=True)
         body.prop(context.scene, "lpc_export_target", text="")
-        body.operator("lpc.export", text="", icon="EXPORT")
+        export_sub = body.row(align=True)
+        export_sub.alert = export_exporter.is_export_dirty(context.scene)
+        export_sub.operator("lpc.export", text="", icon="EXPORT")
 
         layout.operator(
             "lpc.palette_settings", text="Settings...", icon="PREFERENCES"
