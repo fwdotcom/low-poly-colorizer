@@ -5,6 +5,9 @@
 ![Blender](https://img.shields.io/badge/Blender-4.2%2B-orange)
 ![Godot](https://img.shields.io/badge/Godot-4.x-orange)
 
+Originally built in-house for **WASDCAT Games'** Blender → Godot pipeline for
+low poly assets, and shared here with the community as-is.
+
 A Blender add-on for painting mesh **faces** with PBR material values
 (color, roughness, metallic, emission, clearcoat) through a generated color
 palette – with an instant WYSIWYG viewport preview and an export for game

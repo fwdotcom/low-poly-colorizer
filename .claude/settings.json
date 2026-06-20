@@ -10,7 +10,18 @@
       "Bash(blender --background --python make_test.py)",
       "Bash(grep -v \"^$\")",
       "Bash(python3 -m json.tool)",
-      "Bash(blender --background --python make_test3.py)"
+      "Bash(blender --background --python make_test3.py)",
+      "Bash(godot --headless --script /tmp/godot_pixel_check.gd)",
+      "Bash(grep -v \"^Godot Engine\\\\|^$\")",
+      "Bash(blender --background --python /tmp/blender_uv_export_test2.py)",
+      "Bash(grep -v \"^Blender\\\\|^Saving\\\\|^Info:\\\\|INFO:\\\\|^$\")",
+      "Bash(python3 -c ' *)",
+      "Bash(blender --background --python /tmp/blender_uv_export_test3.py)",
+      "Bash(timeout 30 godot --headless --script verify.gd)",
+      "Bash(godot --help)",
+      "Bash(command -v xvfb-run)",
+      "Bash(command -v Xvfb)",
+      "Bash(echo \"exit:$?\")"
     ],
     "additionalDirectories": [
       "/tmp"

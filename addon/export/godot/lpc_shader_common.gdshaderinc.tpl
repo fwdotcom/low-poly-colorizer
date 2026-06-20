@@ -29,8 +29,17 @@ const vec2 LPC_PALETTE_SIZE = vec2({{palette_cols}}.0, {{palette_rows}}.0);
 // needed here. The multicolor variant gets it straight from a UV map
 // (baked in by model/faces.encode_palette_uv at paint time); the
 // singlecolor variant computes it from a hand-set cell + LPC_PALETTE_SIZE.
+// Both feed in `uv.y` in Blender's own (bottom-up) row convention -- the
+// same one `model/palette.build_pixels` used to fill the image -- which is
+// the OPPOSITE of how Godot samples the PNG it loaded (top-down, verified
+// empirically: row 0 of the file is the top texel). One flip is required
+// somewhere in the pipeline; it belongs here (shared by both variants)
+// rather than in model/faces.py's UV0 encoding, which exists for a
+// different reason (undoing Blender's own glTF-export-time V-flip so the
+// Blender-side round-trip stays internally consistent) and must NOT also
+// try to pre-compensate for this.
 vec3 lpc_sample_palette(vec2 uv) {
-    return textureLod(lpc_palette_tex, uv, 0.0).rgb;
+    return textureLod(lpc_palette_tex, vec2(uv.x, 1.0 - uv.y), 0.0).rgb;
 }
 
 // `position` is the preset's list index as a raw float (0..LPC_PRESET_COUNT-1),
