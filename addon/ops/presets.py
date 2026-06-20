@@ -2,19 +2,28 @@
 
 """Preset operators and JSON import/export.
 
-The preset DATA MODEL (PropertyGroup, uid, scatter propagation) lives in
-model/presets.py -- presets are the authority for parameter values. This
-module provides the operators around it: add / delete (refcount-guarded,
+The preset DATA MODEL (PropertyGroup, uid, the LUT/list-position scatter)
+lives in model/presets.py -- presets are the authority for parameter values.
+This module provides the operators around it: add / delete (refcount-guarded,
 Invariant 6) / duplicate, the bundled defaults from
 constants.DEFAULT_PRESETS, and saving/sharing as JSON.
 
-Setting preset properties (add_preset_from_dict, JSON import) triggers
-the property update callbacks and therefore the scatter -- the single
-write path (Invariant 1) is enforced by construction.
+Every operator that can add, remove, or reorder a preset calls
+`model_presets.resync_after_list_change` at the end -- it keeps the per-face
+`lpc_uv1.x` (list position) and the Blender-preview LUT image/divisor node in
+sync with the current list. Cheap even when technically a no-op (e.g.
+appending a preset never shifts any existing preset's position); delete is
+the one action that actually shifts positions, since it's the only one that
+removes from the middle of the list.
+
+Setting preset properties (add_preset_from_dict, JSON import) triggers the
+property update callbacks -- a value edit only touches the LUT image, never
+a face (model layer); only a list-membership/order change touches faces, via
+the resync call above.
 
 There is no "apply preset to brush" anymore: the brush IS (picked
 palette cell + selected preset), and editing a preset's sliders
-propagates directly to every face using it (model layer).
+propagates directly to every face using it.
 
 The JSON (de)serialization and validation are pure Python and testable
 without Blender; only the operator layer needs `bpy`.
@@ -248,6 +257,7 @@ if bpy is not None:
                 scene, f"Preset {len(scene.lpc_presets) + 1}"
             )
             scene.lpc_presets_active = len(scene.lpc_presets) - 1
+            model_presets.resync_after_list_change(scene)
             return {"FINISHED"}
 
     class LPC_OT_preset_delete(bpy.types.Operator):
@@ -276,6 +286,10 @@ if bpy is not None:
             # is never removed here.
             scene.lpc_presets.remove(index)
             scene.lpc_presets_active = min(index, len(scene.lpc_presets) - 1)
+            # Deleting shifts every later preset's list position down by one
+            # -- the only UI action that does, since faces reference a
+            # preset by its uid, not its position.
+            model_presets.resync_after_list_change(scene)
             return {"FINISHED"}
 
     class LPC_OT_preset_duplicate(bpy.types.Operator):
@@ -295,6 +309,7 @@ if bpy is not None:
             data["name"] += " Copy"
             add_preset_from_dict(scene, data)
             scene.lpc_presets_active = len(scene.lpc_presets) - 1
+            model_presets.resync_after_list_change(scene)
             return {"FINISHED"}
 
     class LPC_OT_preset_load_defaults(bpy.types.Operator):
@@ -307,6 +322,7 @@ if bpy is not None:
 
         def execute(self, context):
             counts = merge_presets_by_name(context.scene, default_presets())
+            model_presets.resync_after_list_change(context.scene)
             self.report({"INFO"}, f"Default presets: {_merge_report(*counts)}")
             return {"FINISHED"}
 
@@ -361,5 +377,6 @@ if bpy is not None:
                 self.report({"ERROR"}, f"Invalid preset file: {exc}")
                 return {"CANCELLED"}
             counts = merge_presets_by_name(context.scene, presets)
+            model_presets.resync_after_list_change(context.scene)
             self.report({"INFO"}, f"Imported presets: {_merge_report(*counts)}")
             return {"FINISHED"}

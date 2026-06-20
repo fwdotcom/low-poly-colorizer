@@ -88,8 +88,10 @@ def _clamp_result_xy(self, context):
 
 
 def _grid_params_changed(self, context):
-    """Keep an already picked cell valid when the grid shrinks. Suppressed:
-    resizing the palette must never repaint the selection."""
+    """Keep an already picked cell valid when the grid shrinks (suppressed:
+    resizing the palette must never repaint the selection), AND regenerate
+    the palette image -- a dimension change invalidates the image's size,
+    not just the picked cell."""
     global _suppress_live_apply
     result = context.window_manager.lpc_picker_result
     if result.x >= 0 and result.y >= 0:
@@ -99,6 +101,21 @@ def _grid_params_changed(self, context):
             _clamp_result_xy(result, context)
         finally:
             _suppress_live_apply = outer
+    from ..ui import preview_material
+
+    preview_material.update_palette_image(context.scene)
+
+
+def _palette_image_changed(self, context):
+    """A palette color-tuning param changed (saturation/brightness/tint/
+    shade) -> regenerate the palette image. No clamp needed here (the cell
+    count doesn't change); unlike `_grid_params_changed`'s mesh-data-affecting
+    siblings, every already-painted face's lpc_uv0 names a (x, y) cell that
+    stays valid -- only the COLOR at that cell changes, automatically
+    "repainting" every face with zero mesh traversal."""
+    from ..ui import preview_material
+
+    preview_material.update_palette_image(context.scene)
 
 
 class LPC_PaletteParams(bpy.types.PropertyGroup):
@@ -124,19 +141,23 @@ class LPC_PaletteParams(bpy.types.PropertyGroup):
         name="Saturation", default=constants.DEFAULT_PALETTE_SATURATION,
         min=0.0, max=1.0,
         description="Saturation of the middle row (base color)",
+        update=_palette_image_changed,
     )
     brightness: bpy.props.FloatProperty(
         name="Brightness", default=constants.DEFAULT_PALETTE_BRIGHTNESS,
         min=0.0, max=1.0,
         description="Brightness of the middle row (base color)",
+        update=_palette_image_changed,
     )
     tint: bpy.props.FloatProperty(
         name="Tint", default=constants.DEFAULT_PALETTE_TINT, min=0.0, max=1.0,
         description="How much the top row is mixed toward white (0 = like the middle row, 1 = white)",
+        update=_palette_image_changed,
     )
     shade: bpy.props.FloatProperty(
         name="Shade", default=constants.DEFAULT_PALETTE_SHADE, min=0.0, max=1.0,
         description="How much the bottom row is mixed toward black (0 = like the middle row, 1 = black)",
+        update=_palette_image_changed,
     )
 
 

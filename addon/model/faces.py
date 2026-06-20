@@ -1,32 +1,31 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Per-face source of truth (attribute + UV redesign 2026-06-16).
+"""Per-face source of truth (texture/array lookup redesign 2026-06-19).
 
 Per face there are now these native, export-friendly facts:
 
-    lpc_color       FLOAT_COLOR  CORNER ("vertex colour") -- albedo, SOURCE
-    lpc_index       INT          FACE   -- which preset (its uid), SOURCE
-    lpc_uv0 / lpc_uv1 (UV maps)         -- the preset's PBR params, DERIVED
-    material_index  (built-in)          -- painted? (the shared lpc slot)
+    lpc_index       INT     FACE   -- which preset (its uid), SOURCE
+    lpc_uv0         UV map         -- palette cell (x, y), SOURCE (brush pick)
+    lpc_uv1.x       UV map (1st)   -- preset's list position, DERIVED
+    lpc_uv1.y       UV map (2nd)   -- reserved, currently unwritten
+    material_index  (built-in)     -- painted? (the shared lpc slot)
 
-`lpc_index` (the preset's stable `uid`, 0 = unpainted) is the SOURCE that
-ties a face to a preset; the two UV maps carry that preset's PBR parameters
-so the ONE shared material can drive Roughness/Metallic/Coat/Emission per
-face (WYSIWYG) and Godot can read them through stock glTF (UV0/UV1 ->
-TEXCOORD_0/1; custom attributes do NOT survive glTF, UVs do):
+`lpc_index` (the preset's stable `uid`, 0 = unpainted) is the SOURCE that ties
+a face to a preset; it never changes payload (still drives refcounting,
+Sample/Select/Deselect identity, and which faces a list-position rescatter
+must touch). `lpc_uv0` is the SOURCE for color -- the exact palette cell the
+brush picked, texel-center addressed and pre-compensated for Blender's glTF
+exporter's V-flip (`encode_palette_uv`/`decode_palette_uv` below). `lpc_uv1.x`
+is DERIVED from the preset's CURRENT LIST POSITION (`model.presets.
+rescatter_all_list_positions`); editing a preset's VALUES no longer touches
+any face at all -- only the LUT image/array the position indexes into.
 
-    lpc_uv0 = (roughness, metallic)
-    lpc_uv1 = (clearcoat, emission)        # raw 0..1 per preset
-
-The UVs are derived from the preset and flow in ONE direction (preset ->
-faces). Editing a preset rescatters them onto every face carrying that uid
-(`scatter_preset`); they are rebuildable from the presets at any time and are
-never read back as a source.
-
-`lpc_color` is CORNER (per face-corner), not FACE: only POINT / CORNER colour
-attributes are real "vertex colours" that the glTF exporter emits as COLOR_0.
-CORNER keeps the flat low-poly look. The UV values are likewise written to
-every corner of a face identically, so they interpolate flat per face.
+Both UV maps flow in carefully scoped directions: `lpc_uv0` is written once,
+at paint time, and never rescattered (a palette-settings change only changes
+the IMAGE a cell's color comes from, not any face's stored cell -- so no
+mesh traversal is needed for that case). `lpc_uv1.x` IS rescattered, but only
+when the preset LIST changes (delete is the only UI action that shifts
+positions today), via `scatter_list_position`.
 
 Mesh access convention (ARCHITECTURE.md): meshes in Edit Mode via their edit BMesh
 (the datablock attributes are EMPTY there), everything else via
@@ -48,17 +47,50 @@ except ImportError:  # plain-python tests put the addon dir on sys.path
 
 # The per-face data names (the contract with the shared material's nodes and
 # with the Godot import). All share the add-on namespace prefix.
-COLOR_ATTRIBUTE = constants.PREFIX + "color"   # CORNER FLOAT_COLOR, albedo
 INDEX_ATTRIBUTE = constants.PREFIX + "index"   # FACE INT, preset uid
-UV0_NAME = constants.PREFIX + "uv0"            # (roughness, metallic)
-UV1_NAME = constants.PREFIX + "uv1"            # (clearcoat, emission)
-
-# Neutral albedo fill for freshly created corners (defined once in
-# model/presets.py). Unpainted faces carry no lpc material, so this is just
-# the attribute's initial value, not a rendered "default brush".
-NEUTRAL_COLOR = model_presets.NEUTRAL_COLOR
+UV0_NAME = constants.PREFIX + "uv0"            # palette cell (x, y)
+UV1_NAME = constants.PREFIX + "uv1"            # (list position, reserved)
 
 UNASSIGNED = model_presets.UNASSIGNED
+
+
+# --------------------------------------------------------------------------
+# Pure logic (no bpy): palette-cell <-> UV0 encoding
+# --------------------------------------------------------------------------
+
+def palette_uv(cell_x, cell_y, cols, rows):
+    """Texel-center UV for palette cell (cell_x, cell_y) in a cols x rows
+    palette image, BEFORE the glTF V pre-compensation `_encode_uv0` applies.
+    Shared by `encode_palette_uv` and (in reverse) `decode_palette_uv`."""
+    return ((cell_x + 0.5) / cols, (cell_y + 0.5) / rows)
+
+
+def _encode_uv0(uv):
+    """Pre-compensate `uv` for Blender's glTF exporter, which flips V
+    (v' = 1-v) on EVERY UV layer at export time, not just texture-flagged
+    ones -- harmless while UV0 held raw numeric params, but correctness-
+    critical now that it addresses a real texture. U is untouched (glTF only
+    flips V)."""
+    u, v = uv
+    return (u, 1.0 - v)
+
+
+def encode_palette_uv(cell_x, cell_y, cols, rows):
+    """The (cell_x, cell_y) palette cell, ready to write into `lpc_uv0` --
+    texel-center addressed and glTF-V-pre-compensated. The one function the
+    paint path (ops/assign_sample.py) calls; `decode_palette_uv` is its exact
+    inverse."""
+    return _encode_uv0(palette_uv(cell_x, cell_y, cols, rows))
+
+
+def decode_palette_uv(uv, cols, rows):
+    """Inverse of `encode_palette_uv`: the UV stored on `lpc_uv0` -> exact
+    (cell_x, cell_y) ints. Round-trips exactly for any value
+    `encode_palette_uv` produced (the texel-center +0.5 offset cancels
+    exactly under int truncation). Used by Sample for an exact read-back."""
+    u, v_stored = uv
+    v = 1.0 - v_stored
+    return int(u * cols), int(v * rows)
 
 
 # --------------------------------------------------------------------------
@@ -67,22 +99,7 @@ UNASSIGNED = model_presets.UNASSIGNED
 
 if bpy is not None:
 
-    # -- colour attribute plumbing -------------------------------------
-
-    def ensure_color_attribute(mesh):
-        """The CORNER FLOAT_COLOR `lpc_color` on an Object-Mode mesh, created
-        (neutral-filled) if missing. A leftover FACE-domain attribute from an
-        older layout is replaced."""
-        attr = mesh.attributes.get(COLOR_ATTRIBUTE)
-        if attr is not None and (
-            attr.domain != "CORNER" or attr.data_type != "FLOAT_COLOR"
-        ):
-            mesh.attributes.remove(attr)
-            attr = None
-        if attr is None:
-            attr = mesh.attributes.new(COLOR_ATTRIBUTE, "FLOAT_COLOR", "CORNER")
-            attr.data.foreach_set("color", list(NEUTRAL_COLOR) * len(attr.data))
-        return attr
+    # -- attribute / UV plumbing -----------------------------------------
 
     def ensure_index_attribute(mesh):
         """The FACE INT `lpc_index` on an Object-Mode mesh, created (0 =
@@ -105,17 +122,6 @@ if bpy is not None:
         uv1 = mesh.uv_layers.get(UV1_NAME) or mesh.uv_layers.new(name=UV1_NAME)
         return uv0, uv1
 
-    def _bmesh_color_layer(bm):
-        """The edit BMesh's CORNER colour layer, created (neutral) if missing.
-        CORNER colours live on loops."""
-        layer = bm.loops.layers.float_color.get(COLOR_ATTRIBUTE)
-        if layer is None:
-            layer = bm.loops.layers.float_color.new(COLOR_ATTRIBUTE)
-            for face in bm.faces:
-                for loop in face.loops:
-                    loop[layer] = NEUTRAL_COLOR
-        return layer
-
     def _bmesh_index_layer(bm):
         layer = bm.faces.layers.int.get(INDEX_ATTRIBUTE)
         if layer is None:
@@ -127,31 +133,24 @@ if bpy is not None:
         u1 = bm.loops.layers.uv.get(UV1_NAME) or bm.loops.layers.uv.new(UV1_NAME)
         return u0, u1
 
-    def face_color(face, color_layer):
-        """A face's albedo as RGB -- read from its first corner (all corners
-        of a painted face share one colour)."""
-        for loop in face.loops:
-            return tuple(loop[color_layer][:3])
-        return NEUTRAL_COLOR[:3]
+    # -- assign (index + palette UV + preset position + slot, atomically) --
 
-    # -- assign (colour + index + UV params + slot, atomically) ---------
-
-    def assign_selected_faces(mesh, rgb, uid, uv0, uv1, slot_index):
-        """Paint the SELECTED faces of an Edit-Mode mesh in one step: every
-        corner's colour, the face's preset `uid`, the param UVs (`uv0` =
-        (R,M), `uv1` = (C,E)) on every corner, and the face's `material_index`
-        (the shared lpc slot). Returns the number of painted faces."""
+    def assign_selected_faces(mesh, palette_uv0, uid, preset_position, slot_index):
+        """Paint the SELECTED faces of an Edit-Mode mesh in one step: the
+        face's preset `uid`, `lpc_uv0` = `palette_uv0` (the already-encoded
+        palette cell, every corner), `lpc_uv1.x` = `preset_position` (every
+        corner, `.y` left at 0.0 -- reserved), and the face's
+        `material_index` (the shared lpc slot). Returns the number of
+        painted faces."""
         bm = bmesh.from_edit_mesh(mesh)
-        clayer = _bmesh_color_layer(bm)
         ilayer = _bmesh_index_layer(bm)
         u0, u1 = _bmesh_uv_layers(bm)
-        color = (*rgb, 1.0)
+        uv1 = (preset_position, 0.0)
         painted = 0
         for face in bm.faces:
             if face.select:
                 for loop in face.loops:
-                    loop[clayer] = color
-                    loop[u0].uv = uv0
+                    loop[u0].uv = palette_uv0
                     loop[u1].uv = uv1
                 face[ilayer] = uid
                 face.material_index = slot_index
@@ -160,61 +159,57 @@ if bpy is not None:
             bmesh.update_edit_mesh(mesh)
         return painted
 
-    def assign_whole_mesh(mesh, rgb, uid, uv0, uv1, slot_index):
-        """Paint every face of an Object-Mode mesh: all corners `rgb`, every
-        face's `uid`, the param UVs on every corner, all faces bound to
+    def assign_whole_mesh(mesh, palette_uv0, uid, preset_position, slot_index):
+        """Paint every face of an Object-Mode mesh: `lpc_uv0` = `palette_uv0`
+        on every corner, every face's `uid`, `lpc_uv1.x` = `preset_position`
+        on every corner (`.y` left at 0.0), all faces bound to
         `slot_index`."""
-        cattr = ensure_color_attribute(mesh)
         iattr = ensure_index_attribute(mesh)
         l0, l1 = ensure_uv_layers(mesh)
 
-        nloops = len(cattr.data)
         npoly = len(mesh.polygons)
-        cattr.data.foreach_set("color", [*rgb, 1.0] * nloops)
+        nloops = len(mesh.loops)
         iattr.data.foreach_set("value", [uid] * npoly)
-        l0.data.foreach_set("uv", list(uv0) * nloops)
-        l1.data.foreach_set("uv", list(uv1) * nloops)
+        l0.data.foreach_set("uv", list(palette_uv0) * nloops)
+        l1.data.foreach_set("uv", [preset_position, 0.0] * nloops)
         mesh.polygons.foreach_set("material_index", [slot_index] * npoly)
         mesh.update()
 
-    # -- scatter: push a preset's params onto every face carrying its uid ---
+    # -- scatter: push a preset's list position onto every face with its uid --
 
-    def scatter_preset(uid, uv0, uv1):
-        """Rewrite the param UVs (`uv0`=(R,M), `uv1`=(C,E)) on every face that
-        carries `uid`, across ALL meshes (Edit Mode via BMesh, Object Mode via
-        attribute data). One-directional: preset -> faces. Called from the
-        preset value-change callback so an edit propagates to every face using
-        the preset."""
+    def scatter_list_position(uid, position):
+        """Rewrite ONLY `lpc_uv1.x` (never `.y`, which is reserved) on every
+        face that carries `uid`, across ALL meshes (Edit Mode via BMesh,
+        Object Mode via attribute data). One-directional: preset list ->
+        faces. Called from `model.presets.rescatter_all_list_positions`
+        whenever the preset list's order or membership changes."""
         if uid == UNASSIGNED:
             return
         for mesh in bpy.data.meshes:
             if mesh.is_editmode:
-                _scatter_edit(mesh, uid, uv0, uv1)
+                _scatter_edit_uv1x(mesh, uid, position)
             else:
-                _scatter_object(mesh, uid, uv0, uv1)
+                _scatter_object_uv1x(mesh, uid, position)
 
-    def _scatter_edit(mesh, uid, uv0, uv1):
+    def _scatter_edit_uv1x(mesh, uid, position):
         bm = bmesh.from_edit_mesh(mesh)
         ilayer = bm.faces.layers.int.get(INDEX_ATTRIBUTE)
-        u0 = bm.loops.layers.uv.get(UV0_NAME)
         u1 = bm.loops.layers.uv.get(UV1_NAME)
-        if ilayer is None or u0 is None or u1 is None:
+        if ilayer is None or u1 is None:
             return
         changed = False
         for face in bm.faces:
             if face[ilayer] == uid:
                 for loop in face.loops:
-                    loop[u0].uv = uv0
-                    loop[u1].uv = uv1
+                    loop[u1].uv[0] = position
                 changed = True
         if changed:
             bmesh.update_edit_mesh(mesh)
 
-    def _scatter_object(mesh, uid, uv0, uv1):
+    def _scatter_object_uv1x(mesh, uid, position):
         iattr = mesh.attributes.get(INDEX_ATTRIBUTE)
-        l0 = mesh.uv_layers.get(UV0_NAME)
         l1 = mesh.uv_layers.get(UV1_NAME)
-        if iattr is None or l0 is None or l1 is None:
+        if iattr is None or l1 is None:
             return
         npoly = len(mesh.polygons)
         indices = [0] * npoly
@@ -222,9 +217,7 @@ if bpy is not None:
         if uid not in indices:
             return
         nloops = len(mesh.loops)
-        b0 = [0.0] * (2 * nloops)
         b1 = [0.0] * (2 * nloops)
-        l0.data.foreach_get("uv", b0)
         l1.data.foreach_get("uv", b1)
         starts = [0] * npoly
         totals = [0] * npoly
@@ -234,21 +227,30 @@ if bpy is not None:
             if indices[p] != uid:
                 continue
             for li in range(starts[p], starts[p] + totals[p]):
-                b0[2 * li], b0[2 * li + 1] = uv0
-                b1[2 * li], b1[2 * li + 1] = uv1
-        l0.data.foreach_set("uv", b0)
+                b1[2 * li] = position  # .x only; .y (b1[2*li+1]) untouched
         l1.data.foreach_set("uv", b1)
         mesh.update()
 
-    # -- UV map order (Godot maps TEXCOORD_0/1 -> UV/UV2 by order) ------
+    # -- UV map order (Godot maps TEXCOORD_0/1 -> UV/UV2) ---------------
+    #
+    # Blender's glTF exporter does NOT assign TEXCOORD_0 by list position --
+    # it picks whichever UV layer is flagged "active render" (the camera
+    # icon in the UV Maps list) for slot 0, then the rest in list order. A
+    # mesh that already had its own texturing UV map keeps THAT one flagged
+    # active-render even after lpc_uv0/lpc_uv1 are moved to the front of the
+    # list, so list position alone is not sufficient to control what Godot
+    # imports as `UV` -- the active-render flag must also point at lpc_uv0.
 
     def param_uvs_status(mesh):
-        """Presence + order of the param UV maps, name-only (safe in any mode):
+        """Presence + order + active-render flag of the param UV maps,
+        name-only (safe in any mode):
         'absent'     -- neither lpc UV map present
         'incomplete' -- only one of the two present
-        'misordered' -- both present but not the leading two layers (so they
-                        would NOT import as TEXCOORD_0/1 = UV/UV2 in Godot)
-        'ok'         -- lpc_uv0, lpc_uv1 are exactly the first two layers
+        'misordered' -- both present, but either not the leading two layers
+                        or lpc_uv0 is not the active-render layer (either way
+                        Godot would NOT import them as TEXCOORD_0/1 = UV/UV2)
+        'ok'         -- lpc_uv0, lpc_uv1 are exactly the first two layers AND
+                        lpc_uv0 is the active-render layer
         Whether the mesh is actually painted is the caller's call (a non-lpc
         mesh is simply 'absent')."""
         names = [layer.name for layer in mesh.uv_layers]
@@ -257,44 +259,50 @@ if bpy is not None:
             return "absent"
         if not (has0 and has1):
             return "incomplete"
-        if names[:2] == [UV0_NAME, UV1_NAME]:
-            return "ok"
-        return "misordered"
+        if names[:2] != [UV0_NAME, UV1_NAME]:
+            return "misordered"
+        if not mesh.uv_layers[UV0_NAME].active_render:
+            return "misordered"
+        return "ok"
 
     def reorder_param_uvs_first(mesh):
-        """Move lpc_uv0 / lpc_uv1 to the front of the mesh's uv layers. UV
-        layers have no move API, so rebuild the collection in the desired
-        order, preserving each layer's data and its active-render flag.
-        Returns True if the order changed. OBJECT MODE only (edit-mode uv data
-        is not reachable via foreach)."""
+        """Move lpc_uv0 / lpc_uv1 to the front of the mesh's uv layers AND
+        force lpc_uv0 to be the active-render layer -- NOT preserving
+        whatever was active-render before, since that is exactly what would
+        silently re-break TEXCOORD_0 on export (see the note above). UV
+        layers have no move API, so a position fix rebuilds the collection
+        from scratch. Returns True if either the order or the active-render
+        layer changed. OBJECT MODE only (edit-mode uv data is not reachable
+        via foreach)."""
         layers = mesh.uv_layers
         current = [layer.name for layer in layers]
         leading = [n for n in (UV0_NAME, UV1_NAME) if n in current]
         if not leading:
             return False
         desired = leading + [n for n in current if n not in leading]
-        if desired == current:
+        order_ok = desired == current
+        active_ok = layers.get(UV0_NAME).active_render
+        if order_ok and active_ok:
             return False
+
+        if order_ok:
+            layers.get(UV0_NAME).active_render = True
+            mesh.update()
+            return True
 
         nloops = len(mesh.loops)
         data = {}
-        active_render = None
         for layer in layers:
             buf = [0.0] * (2 * nloops)
             layer.data.foreach_get("uv", buf)
             data[layer.name] = buf
-            if layer.active_render:
-                active_render = layer.name
 
         while len(layers) > 0:
             layers.remove(layers[0])
         for name in desired:
             new = layers.new(name=name, do_init=False)
             new.data.foreach_set("uv", data[name])
-        if active_render is not None:
-            restored = layers.get(active_render)
-            if restored is not None:
-                restored.active_render = True
+        layers.get(UV0_NAME).active_render = True
         mesh.update()
         return True
 

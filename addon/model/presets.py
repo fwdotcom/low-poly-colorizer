@@ -1,16 +1,19 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Presets + globals (attribute + UV redesign 2026-06-16).
+"""Presets + globals (texture/array lookup redesign 2026-06-19).
 
 A **Preset** is a NAMED parameter combination (R, M, E, C). Faces reference a
-preset by carrying its `uid` in the `lpc_index` face attribute; the preset's
-PBR parameters are scattered onto those faces' param UV maps (model/faces.py)
-so the ONE shared material can render them per face. `uid` (0 = UNASSIGNED) is
-the stable identity tying a face to its preset.
+preset by carrying its `uid` in the `lpc_index` face attribute -- the stable
+identity tying a face to its preset, unaffected by list order. The preset's
+PBR parameters themselves live centrally, in a small LUT image (Blender
+preview) / shader array (Godot export), indexed by the preset's CURRENT LIST
+POSITION, which is the derived value scattered onto faces' `lpc_uv1.x`
+(model/faces.py). So a value edit only touches the LUT, not any face; only a
+list reorder/delete (`rescatter_all_list_positions`) touches faces, and only
+their `lpc_uv1.x`.
 
-Editing a preset rescatters its parameters onto every face carrying its uid
-(one-directional, preset -> faces). There is one shared material for the
-whole project (ui/preview_material.py), not one per preset.
+There is one shared material for the whole project (ui/preview_material.py),
+not one per preset.
 
 Lifecycle (Invariant 6): refcounts are lazy (decision #4), computed on demand
 by counting faces whose `lpc_index` is the preset's uid across all meshes.
@@ -45,10 +48,6 @@ PRESET_VALUE_DEFAULTS = {
     "roughness": 0.8, "metallic": 0.0, "emission": 0.0, "clearcoat": 0.0,
 }
 
-# Neutral albedo fill for a newly created lpc_color attribute (model/faces).
-NEUTRAL_COLOR = (0.8, 0.8, 0.8, 1.0)
-
-
 # --------------------------------------------------------------------------
 # Pure logic (no bpy)
 # --------------------------------------------------------------------------
@@ -66,16 +65,6 @@ def reference_counts(keys, referenced_keys):
     return counts
 
 
-def preset_param_uvs(preset):
-    """The preset's PBR parameters packed into the two param UV pairs:
-    (roughness, metallic) and (clearcoat, emission). The single encoding of
-    which value goes into which UV channel -- shared by paint and scatter."""
-    return (
-        (preset.roughness, preset.metallic),
-        (preset.clearcoat, preset.emission),
-    )
-
-
 # --------------------------------------------------------------------------
 # bpy layer
 # --------------------------------------------------------------------------
@@ -83,14 +72,16 @@ def preset_param_uvs(preset):
 if bpy is not None:
 
     def _preset_values_changed(self, context):
-        """A preset's parameters changed -> rescatter them onto the param UVs
-        of every face carrying this preset's uid (Invariant 8: one-directional
-        preset -> faces). Lazy import: model must not import faces at load
-        time as a sibling cycle."""
-        from . import faces as model_faces
+        """A preset's parameters changed -> regenerate the Blender-preview
+        preset LUT image (Invariant 8: one-directional preset -> faces, just
+        via the LUT now instead of a per-face UV rewrite). No per-face mesh
+        write is needed: `lpc_uv1.x` carries the preset's LIST POSITION, which
+        a value edit never changes -- only the LUT pixel at that position
+        does. Lazy import: model must not import ui at load time as a
+        sibling cycle."""
+        from ..ui import preview_material
 
-        uv0, uv1 = preset_param_uvs(self)
-        model_faces.scatter_preset(self.uid, uv0, uv1)
+        preview_material.update_preset_lut(context.scene)
 
     class LPC_Preset(bpy.types.PropertyGroup):
         """One named parameter combination. `uid` is set once by `new_preset`
@@ -164,6 +155,54 @@ if bpy is not None:
             if preset.uid == uid:
                 return preset
         return None
+
+    def preset_list_position(scene, uid):
+        """The preset's current index in `scene.lpc_presets`, or None. This is
+        the value written onto faces' `lpc_uv1.x` (the shader-array index) --
+        DERIVED from list order, unlike `uid` which is the face's permanent
+        reference."""
+        for i, preset in enumerate(scene.lpc_presets):
+            if preset.uid == uid:
+                return i
+        return None
+
+    def build_preset_lut_pixels(scene):
+        """Flat RGBA float buffer, one texel per preset IN LIST ORDER:
+        R=roughness, G=metallic, B=clearcoat, A=emission (raw, before the
+        global emission factor). Width is `max(len(presets), 1)` so an empty
+        list still yields a valid 1x1 image. The preset-array equivalent of
+        `model.palette.build_pixels` -- shared by the Blender-preview LUT
+        image and the exported LUT texture."""
+        presets = list(scene.lpc_presets)
+        width = max(len(presets), 1)
+        pixels = [0.0] * (width * 4)
+        for i, preset in enumerate(presets):
+            pixels[i * 4:i * 4 + 4] = (
+                preset.roughness, preset.metallic,
+                preset.clearcoat, preset.emission,
+            )
+        return pixels
+
+    def rescatter_all_list_positions(scene):
+        """Push every preset's CURRENT list position onto `lpc_uv1.x` of every
+        face carrying its uid, across all meshes. The list-position
+        equivalent of the old per-value scatter -- called after any
+        operation that can change preset order/membership (today: only
+        delete shifts positions; add/duplicate/import are cheap no-ops here
+        since appending never moves an existing preset)."""
+        from . import faces as model_faces
+
+        for position, preset in enumerate(scene.lpc_presets):
+            model_faces.scatter_list_position(preset.uid, position)
+
+    def resync_after_list_change(scene):
+        """Call after ANY operation that adds, removes, or reorders presets:
+        keeps the per-face `lpc_uv1.x` positions AND the Blender-preview LUT
+        image/divisor node in sync with the current list."""
+        from ..ui import preview_material
+
+        rescatter_all_list_positions(scene)
+        preview_material.update_preset_lut(scene)
 
     def preset_refcounts(scene):
         """Lazy refcount per preset (aligned with `scene.lpc_presets`): how

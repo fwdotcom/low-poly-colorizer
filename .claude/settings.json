@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(blender --background --factory-startup --python lpc_verify.py)",
+      "Bash(blender --version)",
+      "Bash(flatpak list *)",
+      "Bash(snap list *)",
+      "Read(//opt/**)",
+      "Read(//usr/share/applications/**)",
+      "Bash(blender --background --python make_test.py)",
+      "Bash(grep -v \"^$\")",
+      "Bash(python3 -m json.tool)",
+      "Bash(blender --background --python make_test3.py)"
+    ],
+    "additionalDirectories": [
+      "/tmp"
+    ]
+  }
+}

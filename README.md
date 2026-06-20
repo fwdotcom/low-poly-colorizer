@@ -36,17 +36,20 @@ engines (currently Godot).
 Instead of building a separate material for every color variant, you paint
 **two things per face**:
 
-- **Color (albedo)** – comes from a cell of the generated palette and is
-  written onto the face as a **vertex color**. So *one* face can carry any
-  color.
+- **Color (albedo)** – comes from a cell of the generated palette. The face
+  carries a *reference* to that cell (its grid position), not the color
+  itself – the actual color is looked up from a small palette texture. So
+  *one* face can carry any color, and changing the palette's settings
+  (saturation, tint, …) updates every already-painted face automatically.
 - **Material look (preset)** – roughness, metallic, emission and clearcoat,
   bundled under a named **preset**. Many faces (with different colors) can
-  share the same preset.
+  share the same preset, again by reference: a face carries the preset's
+  list position, looked up from a small per-preset table.
 
 Behind the scenes, all painted faces share **a single material**. The
-per-face differences live in the mesh data (vertex color + two UV maps), not
-in many materials. That keeps the scene lean and produces **one** surface on
-export instead of many.
+per-face differences live in the mesh data (two UV maps: the picked palette
+cell, and the active preset's position), not in many materials. That keeps
+the scene lean and produces **one** surface on export instead of many.
 
 "Painted" means the face carries a preset. Faces you never painted keep
 Blender's plain default look.
@@ -168,8 +171,11 @@ The palette is fully computed from parameters (adjustable in the
 - **Shade** – how far the bottom row goes toward black.
 
 The palette itself is not stored in the file; it is recomputed from these
-parameters at any time. The **parameters**, however, are stored per scene in
-the `.blend`.
+parameters at any time, into a small palette texture used by both the
+viewport preview and the Godot export. The **parameters**, however, are
+stored per scene in the `.blend`. Because painted faces reference a palette
+*cell*, not a baked color, changing any of these parameters immediately
+updates the color of every already-painted face – no repainting needed.
 
 ---
 
@@ -186,9 +192,9 @@ the `.blend`.
 - **🖌 Assign** – applies the current brush (selected color + active preset)
   to the selection. Disabled when nothing is selected.
 - **👁 Sample** *(Edit Mode)* – "eyedroppers" a painted face back into the
-  UI: sets the matching preset and the nearest palette cell as the current
-  brush. Only works for a selection that uniformly carries *one* color +
-  *one* preset.
+  UI: sets the matching preset and the exact palette cell it carries as the
+  current brush. Only works for a selection that uniformly carries *one*
+  color + *one* preset.
 - **Select / Deselect** *(Edit Mode)* – add/remove all faces that exactly
   match the current brush (same color **and** same preset) to/from the
   selection. Handy for re-coloring specific faces later.
@@ -255,16 +261,30 @@ In the footer, choose an **export template set** on the left via the dropdown
 **Export button (⤓)** on the right. A folder dialog opens – the files are
 written into the chosen folder.
 
-For **Godot Materials**, two files are produced:
+For **Godot Materials**, seven files are produced:
 
-- `lpc_shader.gdshader` – the shared spatial shader.
-- `lpc_material.tres` – the ShaderMaterial that references the shader and sets
-  the global values (Emission Factor, Clearcoat Roughness).
+- `lpc_palette.png` – the palette as a small texture (one texel per cell).
+- `lpc_preset_lut.png` – every preset's roughness/metallic/clearcoat/emission,
+  one texel per preset, in list order.
+- `lpc_shader_common.gdshaderinc` – the shared lookup logic (samples the two
+  textures above), `#include`d by both shaders below.
+- `lpc_shader_multicolor.gdshader` + `lpc_material_multicolor.tres` – for
+  meshes **painted in this add-on**: reads the palette cell / preset position
+  from the mesh's UV maps.
+- `lpc_shader_singlecolor.gdshader` + `lpc_material_singlecolor.tres` – for
+  meshes that did **not** come from this add-on (no per-face data at all): one
+  palette cell + one preset for the **whole mesh**, set per object in Godot
+  (see below).
 
 The export writes **only** these files. The geometry with its per-face data
 reaches Godot separately via the `.blend` import (see the next section).
 
 > If the export reports a **UV warning**, see [Fix UV Maps](#12-fix-uv-maps).
+
+> **Upgrading from an older version:** painted faces store a *reference*
+> (palette cell + preset position), not raw values. There is no automatic
+> migration – a `.blend` painted before this change will render with the
+> wrong colors/parameters until you repaint it.
 
 ---
 
@@ -273,25 +293,60 @@ reaches Godot separately via the `.blend` import (see the next section).
 Godot imports the `.blend` directly (via Blender's glTF export). This is how
 the look travels across:
 
-1. Place the **export folder** (with `lpc_shader.gdshader` +
-   `lpc_material.tres`) and your **`.blend`** into your Godot project.
+1. Place the **export folder** (all seven files above) and your **`.blend`**
+   into your Godot project.
 2. Godot imports the `.blend` as a scene. All painted faces form **one
    surface** (because they share a single material).
 3. In the imported mesh, select the surface and set its **Material Override**
-   to `lpc_material.tres`.
+   to `lpc_material_multicolor.tres`.
 
 What travels how:
 
-- **Albedo** travels as a vertex color (`COLOR_0`).
-- **Roughness/Metallic** live in the first UV map (`lpc_uv0` → `UV`).
-- **Clearcoat / Emission** live in the second UV map (`lpc_uv1` → `UV2`).
-- The shader assembles the look from these; emission is **per face** and
-  albedo-tinted (`EMISSION = color × emission × emission factor`).
+- The picked **palette cell** lives in the first UV map (`lpc_uv0` → `UV`),
+  normalized 0..1; the shader samples `lpc_palette.png` with it for albedo
+  (and the emission tint).
+- The preset's **list position** lives in the second UV map's first
+  component (`lpc_uv1` → `UV2.x`); the shader samples `lpc_preset_lut.png`
+  with it for roughness/metallic/clearcoat/(raw) emission.
+- Emission is **per face**, albedo-tinted, and scaled by the global Emission
+  Factor (`EMISSION = albedo × emission × emission factor`).
 
-> **Important – UV order:** for the parameters to arrive correctly, `lpc_uv0`
-> and `lpc_uv1` must be the **first two** UV maps of the mesh. For freshly
-> painted meshes this is automatic. If a mesh already had its own UV maps, the
-> order can flip – then use **Fix UV Maps**.
+> **Important – UV order:** for the lookup to address the right cell/preset,
+> `lpc_uv0` and `lpc_uv1` must be the **first two** UV maps of the mesh. For
+> freshly painted meshes this is automatic. If a mesh already had its own UV
+> maps, the order can flip – then use **Fix UV Maps**.
+
+> **Important – disable "Fix Alpha Border" on `lpc_preset_lut.png`:**
+> `lpc_preset_lut.png` packs 4 *unrelated* scalars into R/G/B/A
+> (roughness/metallic/clearcoat/emission) – alpha is **not** transparency
+> here. Godot's texture import has **Fix Alpha Border** enabled by default,
+> which silently overwrites the RGB of every texel whose alpha is 0 (i.e.
+> every preset with `emission = 0` – the common case) with a neighboring
+> opaque texel's color, destroying roughness/metallic/clearcoat for those
+> presets (only a preset with non-zero emission survives intact). **Fix,
+> once per project:** select `lpc_preset_lut.png` in the FileSystem dock →
+> Import tab → Advanced → uncheck **Process → Fix Alpha Border** → Reimport.
+> The setting is saved in the `.import` file and survives future re-exports
+> of the same filename.
+
+### Meshes not painted in this add-on
+
+A mesh from anywhere else – a purchased asset, a procedurally generated mesh,
+anything without `lpc_*` data – can still use the same look system, one
+color + one preset for the **whole mesh**:
+
+1. Set the mesh's surface Material Override to `lpc_material_singlecolor.tres`.
+2. On its `MeshInstance3D`, set the **instance shader parameters**
+   `lpc_palette_cell` (e.g. `(3, 5)`) and `lpc_preset_position` (e.g. `1`) –
+   see the comment block in the exported `lpc_shader_singlecolor.gdshader` for
+   which number corresponds to which preset name (re-export after adding,
+   renaming, or deleting a preset to refresh it).
+3. Optionally override `lpc_emission_override` (any value ≥ 0 replaces the
+   preset's own emission for that instance; `-1` – the default – uses the
+   preset's value).
+
+Multiple instances can share the **same** material resource and still each
+look different, since these are per-instance overrides, not per-material.
 
 ---
 
@@ -308,9 +363,13 @@ a **Fix button**. The export warns additionally.
 
 1. recreate missing lpc UV maps,
 2. sort them into the first two slots,
-3. rewrite the preset values into them.
+3. rewrite `lpc_uv1` (every preset's list position) from the current preset
+   list.
 
-Your own UV maps are preserved – they just move behind the lpc maps.
+`lpc_uv0` (the picked palette cell) has no such source to refill from – if it
+had to be recreated, those faces are reported separately and need
+**repainting**. Your own UV maps are preserved either way – they just move
+behind the lpc maps.
 
 > **Note:** Fix UV Maps only runs in **Object Mode** (reordering UV maps is not
 > possible in Edit Mode). Switch to Object Mode briefly and click again if
@@ -328,8 +387,15 @@ Your own UV maps are preserved – they just move behind the lpc maps.
   "Solid" preset and pick different palette colors.
 - **Change preset values centrally:** moving a slider changes *all* faces of
   that preset at once – ideal for adjusting the look project-wide.
+- **Change palette settings centrally:** the same is true for the palette
+  parameters (Settings dialog) – they re-color every already-painted face,
+  not just new picks.
 - **Greyscale column:** with the greyscale column enabled, `X = 0` is always
   the white-to-black ramp; the hues start at `X = 1`.
+- **Re-export after editing presets:** if you've hand-set
+  `lpc_preset_position` on a non-painted (singlecolor) Godot mesh, re-export
+  after adding/renaming/deleting a preset and re-check that number – list
+  positions can shift on delete.
 
 ---
 
@@ -351,10 +417,25 @@ With a mixed selection the button stays locked.
 It is still used by faces (refcount > 0). Re-color those faces first (assign a
 different preset), then deletion is unlocked.
 
-**In Godot, roughness/metallic/clearcoat/emission are wrong.**
-Most likely the UV order slipped – run **Fix UV Maps** in Object Mode and
-export/import again. Also check that the surface's **Material Override** is set
-to `lpc_material.tres`.
+**In Godot, roughness/metallic/clearcoat/emission are wrong (e.g. every
+non-emissive preset looks the same).**
+Most likely cause: Godot's **Fix Alpha Border** import option on
+`lpc_preset_lut.png` is still enabled – it overwrites roughness/metallic/
+clearcoat wherever a preset's emission is 0 (see the callout in
+[Godot integration](#11-godot-integration)). Disable it and reimport.
+If that's not it, the UV order may have slipped – run **Fix UV Maps** in
+Object Mode and export/import again. Also check that the surface's
+**Material Override** is set to `lpc_material_multicolor.tres` (painted
+meshes) or `lpc_material_singlecolor.tres` (meshes set up via instance
+uniforms).
+
+**In Godot, palette cells bleed into each other / look blurry up close.**
+Check the imported `lpc_palette.png` / `lpc_preset_lut.png`'s import settings
+in Godot's Import dock: filtering should be **Nearest**, and mipmaps
+generation should be off. The shader's own sampler hints already force this
+for in-shader sampling, but the importer's own settings are worth checking if
+something still looks off (e.g. the texture used anywhere outside this
+shader).
 
 **Freshly added geometry is "unpainted".**
 This is intentional: new faces carry no preset and render the default look

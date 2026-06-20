@@ -8,6 +8,11 @@ placeholders are substituted from the scene's material parameters
 (`build_context`), the `.tpl` marker is dropped from the written filename, and
 literal braces in the body are left intact (so shader code survives).
 
+Alongside the rendered templates, `write_textures` writes the palette + the
+preset LUT as PNGs -- binary data the `.tpl` text-substitution mechanism
+can't carry, so it's a separate step in `LPC_OT_export.execute`, not another
+template.
+
 Nothing here is Godot-specific -- the only thing that knows about a particular
 engine is its template folder + its registry entry. The render context is the
 engine-agnostic material state; a template uses whatever subset it needs and
@@ -21,11 +26,42 @@ import re
 import bpy
 
 from . import registry
+from .. import constants
+from ..model import palette as model_palette
+from ..picker import interface as picker_interface
 from ..ui import preview_material
+
+# Filenames the palette + preset LUT textures are written under in the export
+# folder -- referenced literally by the .tres templates (ExtResource paths
+# are fixed text, not engine-agnostic, so the names live here rather than in
+# the templates themselves).
+PALETTE_IMAGE_FILENAME = "lpc_palette.png"
+PRESET_LUT_IMAGE_FILENAME = "lpc_preset_lut.png"
+
+# Base name the .tres templates suffix into their own resource_name
+# ("{{name}}_multicolor" / "{{name}}_singlecolor") -- deliberately NOT
+# `preview_material.MATERIAL_NAME` (the Blender datablock, itself suffixed
+# "_multicolor" since Blender's preview only ever renders that variant): this
+# base feeds BOTH exported resources, so it must stay variant-neutral.
+EXPORT_MATERIAL_NAME = constants.PREFIX + "material"
 
 
 def _fmt(value):
     return repr(round(float(value), 6))
+
+
+def _preset_legend(scene):
+    """A `lpc_preset_position` value <-> preset name comment block -- list
+    position is a plain int with no name attached once it's on a mesh, so
+    this is the one place a human (hand-setting the singlecolor variant's
+    instance uniforms in Godot) can look up which number means what.
+    Re-exporting after any preset add/delete/rename regenerates it; it goes
+    stale otherwise, hence the "at the time of the last export" caveat in the
+    template using it."""
+    presets = list(scene.lpc_presets)
+    if not presets:
+        return "//   (no presets)"
+    return "\n".join(f"//   {i} = {p.name}" for i, p in enumerate(presets))
 
 
 def build_context(scene):
@@ -33,11 +69,37 @@ def build_context(scene):
     material parameters from the scene. Unknown placeholders in a template are
     left untouched, unused keys here are simply ignored."""
     g = scene.lpc_globals
+    cols, rows = model_palette.cell_count(picker_interface.params_from_scene(scene))
     return {
-        "name": preview_material.MATERIAL_NAME,
+        "name": EXPORT_MATERIAL_NAME,
         "emission_factor": _fmt(g.emission_factor),
         "clearcoat_roughness": _fmt(g.clearcoat_roughness),
+        "preset_count": str(max(len(scene.lpc_presets), 1)),
+        "palette_cols": str(cols),
+        "palette_rows": str(rows),
+        "palette_image_filename": PALETTE_IMAGE_FILENAME,
+        "preset_lut_image_filename": PRESET_LUT_IMAGE_FILENAME,
+        "preset_legend": _preset_legend(scene),
     }
+
+
+def write_textures(scene, out_dir):
+    """Write the palette + preset LUT images as PNGs into `out_dir`, via
+    Blender's own `Image.save()` -- guarantees the exported pixels are
+    byte-identical to whatever the Blender preview just sampled (no separate
+    encoder to risk a rounding/gamma divergence). Returns the list of written
+    filenames."""
+    written = []
+    for image, filename in (
+        (preview_material.ensure_palette_image(scene), PALETTE_IMAGE_FILENAME),
+        (preview_material.ensure_preset_lut_image(scene), PRESET_LUT_IMAGE_FILENAME),
+    ):
+        path = os.path.join(out_dir, filename)
+        image.filepath_raw = path
+        image.file_format = "PNG"
+        image.save()
+        written.append(filename)
+    return written
 
 
 def _render(text, mapping):
@@ -90,7 +152,7 @@ EXPORT_TARGET_ITEMS = registry.enum_items()
 
 
 class LPC_OT_export(bpy.types.Operator):
-    """Export the selected template set into a chosen folder. Pick the target in the dropdown; the per-face look travels in the mesh data (vertex colour + the lpc UV maps), so import the .blend separately"""
+    """Export the selected template set into a chosen folder: the shader(s), material(s), and the palette + preset LUT textures. Pick the target in the dropdown; the per-face references (palette cell + preset index) travel in the lpc UV maps, so import the .blend separately"""
 
     bl_idname = "lpc.export"
     bl_label = "Export"
@@ -118,6 +180,7 @@ class LPC_OT_export(bpy.types.Operator):
 
         try:
             written = render_set(set_id, out_dir, build_context(scene))
+            written += write_textures(scene, out_dir)
         except (OSError, ValueError) as exc:
             self.report({"ERROR"}, f"Export failed: {exc}")
             return {"CANCELLED"}

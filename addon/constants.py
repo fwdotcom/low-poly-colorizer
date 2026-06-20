@@ -14,9 +14,9 @@ the modules.
 #   - the per-face data names (model/faces.py): lpc_color (vertex colour),
 #     lpc_index (preset uid), lpc_uv0 / lpc_uv1 (param UV maps)
 #   - the shared material datablock + its node names (ui/preview_material.py):
-#     lpc_material, the emission-factor / clearcoat-roughness value nodes, and
-#     the node-version + managed custom-prop keys (lpc_nodes_version,
-#     lpc_managed).
+#     lpc_material_multicolor, the emission-factor / clearcoat-roughness value
+#     nodes, and the node-version + managed custom-prop keys
+#     (lpc_nodes_version, lpc_managed).
 #
 # IMPORTANT: choose this BEFORE painting any faces. Changing it on a file
 # that already has painted faces orphans the existing lpc_* data (fresh ones

@@ -4,7 +4,7 @@ id = "low_poly_colorizer"
 version = "0.1.0"
 name = "Low Poly Colorizer"
 tagline = "Face-Material-Painting mit Paletten-Picker und Godot-Export"
-maintainer = "Frank Winter <info@frankwinter.com>"
+maintainer = "Frank Winter <studio@frankwinter.com>"
 type = "add-on"
 
 tags = ["Material", "Paint", "Import-Export"]

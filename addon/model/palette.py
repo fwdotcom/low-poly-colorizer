@@ -88,6 +88,28 @@ def color_at(x, y, params):
     return (r, g, b, 1.0)
 
 
+def build_pixels(params):
+    """Flat row-major RGBA float buffer for the whole grid, one texel per
+    cell, plus its (cols, rows) -- the palette as a texture instead of a
+    procedure. The single place `color_at` becomes pixels, shared by the
+    Blender-preview palette image and the exported PNG (ui/preview_material.py,
+    export/exporter.py) so both consumers render identical colors by
+    construction, exactly as `color_at` already guarantees for the picker.
+
+    Row order matches Blender's `Image.pixels` convention (row 0 = bottom of
+    the image). `model/faces.palette_uv`/`decode_palette_uv` must address this
+    SAME convention -- they do, by sharing the (x, y) -> (cols, rows)-relative
+    cell indexing this function and `color_at` both use.
+    """
+    cols, rows = cell_count(params)
+    pixels = [0.0] * (cols * rows * 4)
+    for y in range(rows):
+        for x in range(cols):
+            i = (y * cols + x) * 4
+            pixels[i:i + 4] = color_at(x, y, params)
+    return pixels, cols, rows
+
+
 def nearest_cell(color, params):
     """Cell (x, y) whose `color_at` result is closest to `color` (r,g,b[,a]).
 
