@@ -11,12 +11,18 @@ the modules.
 # data -- exposed so a user can resolve name clashes in their .blend and
 # in exports by changing it in this one place. It controls exactly the
 # names that show up in the .blend data and get carried into exports:
-#   - the per-face data names (model/faces.py): lpc_color (vertex colour),
-#     lpc_index (preset uid), lpc_uv0 / lpc_uv1 (param UV maps)
+#   - the per-face data names (model/faces.py): lpc_index (preset uid),
+#     lpc_uv0 / lpc_uv1 (param UV maps)
 #   - the shared material datablock + its node names (ui/preview_material.py):
-#     lpc_material_multicolor, the emission-factor / clearcoat-roughness value
-#     nodes, and the node-version + managed custom-prop keys
-#     (lpc_nodes_version, lpc_managed).
+#     lpc_material_multicolor, the emission-factor / clearcoat-roughness /
+#     preset-count value nodes, and the node-version + managed custom-prop
+#     keys (lpc_nodes_version, lpc_managed)
+#   - the two managed preview images + their stamp keys
+#     (ui/preview_material.py): lpc_palette / lpc_preset_lut,
+#     lpc_palette_managed / lpc_preset_lut_managed
+#   - the export-side material base name (export/exporter.py): lpc_material,
+#     which feeds the Godot .tres resource names (lpc_material_multicolor /
+#     lpc_material_singlecolor)
 #
 # IMPORTANT: choose this BEFORE painting any faces. Changing it on a file
 # that already has painted faces orphans the existing lpc_* data (fresh ones
@@ -28,7 +34,10 @@ the modules.
 # not mesh data, never exported -- and are accessed as Python attributes,
 # so they can't derive from a constant without getattr/setattr at every
 # call site; operator bl_idnames use the dotted "lpc." namespace (runtime
-# only, not stored in the .blend). UI labels keep their own wording.
+# only, not stored in the .blend); the exported Godot shader/material
+# templates hardcode their own "lpc_"-prefixed uniform/sampler names
+# (lpc_palette_tex, lpc_palette_cell_x, ...) as literal template text, not
+# derived from this constant. UI labels keep their own wording.
 PREFIX = "lpc_"
 
 # Picker: frame around the palette grid.
@@ -51,7 +60,8 @@ DEFAULT_PALETTE_SHADE = 0.8        # how far the bottom row goes toward black
 DEFAULT_EMISSION_FACTOR = 1.0      # global multiplier on every preset's emission
 DEFAULT_CLEARCOAT_ROUGHNESS = 0.0  # project-wide coat roughness
 
-# Default presets, loaded via "Load Default Presets". Edit or
+# Default presets, loaded via "Load Default Presets" and also used to seed
+# a fresh file's preset list automatically (addon/__init__.py). Edit or
 # extend freely. The format is exactly the "presets" list of an exported
 # preset JSON file, so entries can be copied between here and exports.
 # A preset always defines ALL four parameters (0..1 each), so every
