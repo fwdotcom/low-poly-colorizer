@@ -10,5 +10,3 @@ Low Poly Colorizer is split into two parts with different licenses:
 The add-on is GPL so it stays free software. The exported shader/material
 templates are MIT so the files you ship inside your own Godot project carry no
 copyleft obligation — you can use them in any project, open or closed.
-
-Copyright (c) 2026 Frank Winter
