@@ -1,4 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Frank Winter <https://www.frankwinter.com/>
 # SPDX-License-Identifier: GPL-3.0-or-later
+#
+# This file is part of Low Poly Colorizer (LPC), a WASDCAT Games project. <https://www.wasdcat.com/>
 
 """Assign/Sample/Select operators + Fix UV Maps (texture/array lookup redesign).
 

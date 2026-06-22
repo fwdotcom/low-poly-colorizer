@@ -457,4 +457,5 @@ This is intentional: new faces carry no preset and render the default look
 until you paint them.
 
 ---
-Copyright (C) 2026 [Frank Winter](https://www.frankwinter.com) | A [WASDCAT Games](https://www.wasdcat.com) project.
+
+Copyright (C) 2026 [Frank Winter](https://www.frankwinter.com/) | A [WASDCAT Games](https://www.wasdcat.com/) project | Licensed under [GPL-3.0-or-later](LICENSE)
