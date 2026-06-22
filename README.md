@@ -1,4 +1,4 @@
-# Low Poly Colorizer – Manual
+# Low Poly Colorizer
 
 ![Version](https://img.shields.io/badge/version-0.1.0-blue)
 ![License](https://img.shields.io/badge/license-GPL--3.0-blue)
@@ -457,4 +457,4 @@ This is intentional: new faces carry no preset and render the default look
 until you paint them.
 
 ---
-Copyright (C) 2026 [Frank Winter](https://www.frankwinter.com) | A [WASDCAT Games](https://www.wasdcat.com) project
+Copyright (C) 2026 [Frank Winter](https://www.frankwinter.com) | A [WASDCAT Games](https://www.wasdcat.com) project.
