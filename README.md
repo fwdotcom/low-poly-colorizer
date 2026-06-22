@@ -82,21 +82,21 @@ The whole workflow lives in the N-panel **LPC ▸ Low Poly Colorizer**:
 
 ```
 ┌─ Low Poly Colorizer ───────────────────────┐
-│ [Swatch] [X] [Y]              [🎨 Picker]  │  ← current color + cell
-│ 3 faces in 1 object selected               │  ← selection hint
+│ [Swatch] [X] [Y]              [Picker]     │  ← current color + cell
+│ x faces in y object selected               │  ← selection hint
 │                                            │
 │ ┌ Preset list ──────────────┐  [+]         │
-│ │ Solid                  0   │  [-]         │  ← presets, refcount on right
-│ │ Metallic               12  │  [▾ Menu]    │
-│ │ Emission               0   │              │
+│ │ Solid                  0  │  [-]         │  ← presets, refcount on right
+│ │ Metallic               12 │  [▾ Menu]    │
+│ │ Emission               0  │              │
 │ └───────────────────────────┘              │
 │                                            │
-│ Roughness  ▓▓▓▓▓░░░░                        │  ← active preset's values
-│ Metallic   ░░░░░░░░░                        │
-│ Emission   ░░░░░░░░░                        │
-│ Clearcoat  ░░░░░░░░░                        │
+│ Roughness  ▓▓▓▓▓░░░░                       │  ← active preset's values
+│ Metallic   ░░░░░░░░░                       │
+│ Emission   ░░░░░░░░░                       │
+│ Clearcoat  ░░░░░░░░░                       │
 │                                            │
-│ [👁 Sample]            [🖌 Assign]          │
+│ [Sample]              [Assign]             │
 │ [Select]              [Deselect]           │  ← Edit Mode only
 │                                            │
 │ Export   [Godot Materials ▾]      [⤓]      │  ← footer
