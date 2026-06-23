@@ -1,7 +1,8 @@
-# SPDX-FileCopyrightText: 2026 Frank Winter <https://www.frankwinter.com/>
+﻿# SPDX-FileCopyrightText: 2026 Frank Winter <https://www.frankwinter.com/>
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# This file is part of Low Poly Colorizer (LPC), a WASDCAT Games project. <https://www.wasdcat.com/>
+# This file is part of Low Poly Colorizer (LPC). <https://github.com/wasdcat/low-poly-colorizer>
+# A WASDCAT Games project. <https://www.wasdcat.com/>
 
 """The one shared preview material (texture/array lookup redesign 2026-06-19).
 
@@ -400,3 +401,4 @@ def ensure_unpainted_front(obj):
         return
     if len(mesh.materials) == 0:
         mesh.materials.append(None)
+

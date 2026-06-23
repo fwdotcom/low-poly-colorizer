@@ -1,7 +1,8 @@
-# SPDX-FileCopyrightText: 2026 Frank Winter <https://www.frankwinter.com/>
+﻿# SPDX-FileCopyrightText: 2026 Frank Winter <https://www.frankwinter.com/>
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# This file is part of Low Poly Colorizer (LPC), a WASDCAT Games project. <https://www.wasdcat.com/>
+# This file is part of Low Poly Colorizer (LPC). <https://github.com/wasdcat/low-poly-colorizer>
+# A WASDCAT Games project. <https://www.wasdcat.com/>
 
 """Shared cell<->pixel geometry helper (Invariant 5 in ARCHITECTURE.md).
 
@@ -63,3 +64,4 @@ class PickerGeometry:
         if 0 <= cell_x < cols and 0 <= cell_y < rows:
             return cell_x, cell_y
         return None
+

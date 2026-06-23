@@ -1,7 +1,8 @@
-# SPDX-FileCopyrightText: 2026 Frank Winter <https://www.frankwinter.com/>
+﻿# SPDX-FileCopyrightText: 2026 Frank Winter <https://www.frankwinter.com/>
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# This file is part of Low Poly Colorizer (LPC), a WASDCAT Games project. <https://www.wasdcat.com/>
+# This file is part of Low Poly Colorizer (LPC). <https://github.com/wasdcat/low-poly-colorizer>
+# A WASDCAT Games project. <https://www.wasdcat.com/>
 
 """N-panel and settings dialog: picker invocation and result display.
 
@@ -271,3 +272,4 @@ class LPC_PT_footer(bpy.types.Panel):
         layout.operator(
             "lpc.palette_settings", text="Settings...", icon="PREFERENCES"
         )
+
