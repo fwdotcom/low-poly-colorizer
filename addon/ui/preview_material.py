@@ -215,11 +215,20 @@ def _find_managed_image(stamp_key):
 def _refill_image(image, pixels, width, height):
     """Resize (if needed) then ALWAYS fully refill from `pixels` -- never
     rely on `scale()`'s resampled content, since adjacent palette cells /
-    adjacent presets must never blend into each other."""
+    adjacent presets must never blend into each other.
+
+    Finally PACK the result into the .blend. These are GENERATED images
+    (bpy.data.images.new): Blender does NOT store a generated image's pixel
+    data on save -- it regenerates a blank buffer from generated_type/color
+    on load -- so without packing, a saved-then-reopened file (e.g. shared
+    via git) shows the managed textures present but empty. Packing writes
+    the current pixels into the .blend and re-runs on every refill, so the
+    packed data always tracks the latest palette/preset params."""
     if (image.size[0], image.size[1]) != (width, height):
         image.scale(width, height)
     image.pixels.foreach_set(pixels)
     image.update()
+    image.pack()
 
 
 def ensure_palette_image(scene):
