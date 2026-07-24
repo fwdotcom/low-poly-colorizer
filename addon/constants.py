@@ -18,15 +18,18 @@ the modules.
 #   - the per-face data names (model/faces.py): lpc_index (preset uid),
 #     lpc_uv0 / lpc_uv1 (param UV maps)
 #   - the shared material datablock + its node names (ui/preview_material.py):
-#     lpc_material_multicolor, the emission-factor / clearcoat-roughness /
+#     lpc_multicolor, the emission-factor / clearcoat-roughness /
 #     preset-count value nodes, and the node-version + managed custom-prop
 #     keys (lpc_nodes_version, lpc_managed)
 #   - the two managed preview images + their stamp keys
 #     (ui/preview_material.py): lpc_palette / lpc_preset_lut,
 #     lpc_palette_managed / lpc_preset_lut_managed
-#   - the export-side material base name (export/exporter.py): lpc_material,
-#     which feeds the Godot .tres resource names (lpc_material_multicolor /
-#     lpc_material_singlecolor)
+#   - the entire exported Godot fileset (export/): the prefix feeds both the
+#     output FILENAMES (the templates are named {{prefix}}multicolor.tres.tpl
+#     etc., rendered like their bodies) and the names inside them -- the .tres
+#     resource_name (lpc_multicolor / lpc_singlecolor), the ExtResource shader
+#     paths + #include lines pointing between the files, and the exported
+#     texture filenames (lpc_palette.png / lpc_preset_lut.png)
 #
 # IMPORTANT: choose this BEFORE painting any faces. Changing it on a file
 # that already has painted faces orphans the existing lpc_* data (fresh ones

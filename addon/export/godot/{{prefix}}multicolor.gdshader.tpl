@@ -10,7 +10,7 @@ shader_type spatial;
 //
 // Godot imports the .blend geometry directly (Blender's own glTF export
 // under the hood). All painted faces share ONE material, so they import as
-// ONE surface; set its Material Override to lpc_material_multicolor.tres.
+// ONE surface; set its Material Override to {{prefix}}multicolor.tres.
 //
 // Per-face data carried through stock glTF:
 //   * UV  (TEXCOORD_0, from lpc_uv0) = the picked palette cell, normalized
@@ -21,9 +21,9 @@ shader_type spatial;
 // they import as UV / UV2 (use "Fix UV Maps" in the add-on if they aren't).
 //
 // For meshes that did NOT come from this add-on (no per-face data at all),
-// use lpc_shader_singlecolor.gdshader / lpc_material_singlecolor.tres instead.
+// use {{prefix}}singlecolor.gdshader / {{prefix}}singlecolor.tres instead.
 
-#include "lpc_shader_common.gdshaderinc"
+#include "{{prefix}}common.gdshaderinc"
 
 uniform float emission_factor : hint_range(0.0, 16.0) = 1.0;
 uniform float clearcoat_roughness_value : hint_range(0.0, 1.0) = 0.0;

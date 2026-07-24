@@ -6,7 +6,7 @@
 
 // Low Poly Colorizer -- shared palette + preset lookup (Godot 4).
 //
-// #include'd by both shader variants (lpc_shader_multicolor / lpc_shader_singlecolor)
+// #include'd by both shader variants ({{prefix}}multicolor / {{prefix}}singlecolor)
 // so the actual sampling math lives in exactly one place; the two variants
 // differ only in WHERE the palette cell / preset index come from (per-face
 // vertex UVs vs. per-instance uniforms).

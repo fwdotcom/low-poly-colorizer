@@ -43,11 +43,12 @@ import bpy
 from .. import constants
 from ..model import faces as model_faces
 
-# The single shared material datablock name. Suffixed "_multicolor" since the
-# Blender preview only ever renders that variant (per-face data via UVs) --
-# there is no Blender-side equivalent of the export-only singlecolor variant
-# (a whole-mesh override has no per-face data to read in the first place).
-MATERIAL_NAME = constants.PREFIX + "material_multicolor"
+# The single shared material datablock name. Named for the "multicolor"
+# variant since the Blender preview only ever renders that one (per-face data
+# via UVs) -- there is no Blender-side equivalent of the export-only
+# singlecolor variant (a whole-mesh override has no per-face data to read in
+# the first place).
+MATERIAL_NAME = constants.PREFIX + "multicolor"
 
 # Custom-prop stamp on the material we create.
 _MANAGED_KEY = constants.PREFIX + "managed"

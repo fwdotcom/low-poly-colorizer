@@ -9,8 +9,10 @@
 A target is a folder of `.tpl` files (see registry.py). Export renders every
 `.tpl` in the chosen set into the chosen output directory: `{{key}}`
 placeholders are substituted from the scene's material parameters
-(`build_context`), the `.tpl` marker is dropped from the written filename, and
-literal braces in the body are left intact (so shader code survives).
+(`build_context`) in BOTH the body and the filename (so a template named
+`{{prefix}}common.gdshaderinc.tpl` is written under the active namespace
+prefix), the `.tpl` marker is dropped from the written filename, and literal
+braces in the body are left intact (so shader code survives).
 
 Alongside the rendered templates, `write_textures` writes the palette + the
 preset LUT as PNGs -- binary data the `.tpl` text-substitution mechanism
@@ -20,8 +22,9 @@ template.
 Nothing here is Godot-specific -- the only thing that knows about a particular
 engine is its template folder + its registry entry. The render context is the
 engine-agnostic material state; a template uses whatever subset it needs and
-cross-file references (e.g. a material pointing at its shader file) are written
-literally in the template, since each set's output filenames are fixed.
+cross-file references (e.g. a material pointing at its shader file) use the
+same `{{prefix}}` placeholder as the filenames, so they stay in sync whatever
+the active namespace prefix is.
 """
 
 import os
@@ -37,19 +40,13 @@ from ..picker import interface as picker_interface
 from ..ui import preview_material
 
 # Filenames the palette + preset LUT textures are written under in the export
-# folder -- referenced literally by the .tres templates (ExtResource paths
-# are fixed text, not engine-agnostic, so the names live here rather than in
-# the templates themselves).
-PALETTE_IMAGE_FILENAME = "lpc_palette.png"
-PRESET_LUT_IMAGE_FILENAME = "lpc_preset_lut.png"
-
-# Base name the .tres templates suffix into their own resource_name
-# ("{{name}}_multicolor" / "{{name}}_singlecolor") -- deliberately NOT
-# `preview_material.MATERIAL_NAME` (the Blender datablock, itself suffixed
-# "_multicolor" since Blender's preview only ever renders that variant): this
-# base feeds BOTH exported resources, so it must stay variant-neutral.
-EXPORT_MATERIAL_NAME = constants.PREFIX + "material"
-
+# folder -- the .tres templates reference them via the {{palette_image_filename}}
+# / {{preset_lut_image_filename}} placeholders (build_context), so the names
+# live here in one place and stay in sync between the written PNGs and the
+# ExtResource paths pointing at them. Prefixed via constants.PREFIX like every
+# other exported filename.
+PALETTE_IMAGE_FILENAME = constants.PREFIX + "palette.png"
+PRESET_LUT_IMAGE_FILENAME = constants.PREFIX + "preset_lut.png"
 
 def _fmt(value):
     return repr(round(float(value), 6))
@@ -77,7 +74,12 @@ def build_context(scene):
     cols, rows = model_palette.cell_count(picker_interface.params_from_scene(scene))
     preset_count = max(len(scene.lpc_presets), 1)
     return {
-        "name": EXPORT_MATERIAL_NAME,
+        # Namespace prefix the .tres templates prepend to their own
+        # resource_name ("{{prefix}}multicolor" / "{{prefix}}singlecolor",
+        # matching the exported .tres filenames) -- the variant IS the whole
+        # distinguishing part after the prefix, so there is no shared
+        # material base name to carry.
+        "prefix": constants.PREFIX,
         "emission_factor": _fmt(g.emission_factor),
         "clearcoat_roughness": _fmt(g.clearcoat_roughness),
         "preset_count": str(preset_count),
@@ -177,7 +179,11 @@ def render_set(set_id, out_dir, context):
             continue
         with open(os.path.join(tdir, entry), "r", encoding="utf-8") as f:
             text = f.read()
-        out_name = _strip_tpl(entry)
+        # The template FILENAME carries the same {{prefix}} placeholder as its
+        # body (e.g. "{{prefix}}common.gdshaderinc.tpl"), so the exported file
+        # name honors constants.PREFIX exactly like the cross-file references
+        # written inside it -- one substitution pass covers both.
+        out_name = _render(_strip_tpl(entry), context)
         with open(os.path.join(out_dir, out_name), "w", encoding="utf-8") as f:
             f.write(_render(text, context))
         written.append(out_name)
@@ -213,7 +219,7 @@ class LPC_OT_export(bpy.types.Operator):
     # is_export_dirty's docstring.
     bl_options = {"REGISTER", "UNDO"}
 
-    # Directory picker (every output filename is fixed by the templates).
+    # Directory picker (every output filename is determined by the templates).
     directory: bpy.props.StringProperty(subtype="DIR_PATH")
     filter_folder: bpy.props.BoolProperty(default=True, options={"HIDDEN"})
 

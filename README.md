@@ -264,17 +264,19 @@ In the footer, choose an **export template set** on the left via the dropdown
 **Export button (⤓)** on the right. A folder dialog opens – the files are
 written into the chosen folder.
 
-For **Godot Materials**, seven files are produced:
+For **Godot Materials**, eight files are produced:
 
+- `README.md` – Godot-side import-settings notes (the two textures are data,
+  not color – see the [texture import callouts](#11-godot-integration) below).
 - `lpc_palette.png` – the palette as a small texture (one texel per cell).
 - `lpc_preset_lut.png` – every preset's roughness/metallic/clearcoat/emission,
   one texel per preset, in list order.
-- `lpc_shader_common.gdshaderinc` – the shared lookup logic (samples the two
+- `lpc_common.gdshaderinc` – the shared lookup logic (samples the two
   textures above), `#include`d by both shaders below.
-- `lpc_shader_multicolor.gdshader` + `lpc_material_multicolor.tres` – for
+- `lpc_multicolor.gdshader` + `lpc_multicolor.tres` – for
   meshes **painted in this add-on**: reads the palette cell / preset position
   from the mesh's UV maps.
-- `lpc_shader_singlecolor.gdshader` + `lpc_material_singlecolor.tres` – for
+- `lpc_singlecolor.gdshader` + `lpc_singlecolor.tres` – for
   meshes that did **not** come from this add-on (no per-face data at all): one
   palette cell + one preset for the **whole mesh**, set per object in Godot
   (see below).
@@ -306,12 +308,12 @@ reaches Godot separately via the `.blend` import (see the next section).
 Godot imports the `.blend` directly (via Blender's glTF export). This is how
 the look travels across:
 
-1. Place the **export folder** (all seven files above) and your **`.blend`**
+1. Place the **export folder** (all eight files above) and your **`.blend`**
    into your Godot project.
 2. Godot imports the `.blend` as a scene. All painted faces form **one
    surface** (because they share a single material).
 3. In the imported mesh, select the surface and set its **Material Override**
-   to `lpc_material_multicolor.tres`.
+   to `lpc_multicolor.tres`.
 
 What travels how:
 
@@ -348,11 +350,11 @@ A mesh from anywhere else – a purchased asset, a procedurally generated mesh,
 anything without `lpc_*` data – can still use the same look system, one
 color + one preset for the **whole mesh**:
 
-1. Set the mesh's surface Material Override to `lpc_material_singlecolor.tres`.
+1. Set the mesh's surface Material Override to `lpc_singlecolor.tres`.
 2. On its `MeshInstance3D`, set the **instance shader parameters**
    `lpc_palette_cell_x` / `lpc_palette_cell_y` (e.g. `3` / `5`) and
    `lpc_preset_position` (e.g. `1`) – see the comment block in the exported
-   `lpc_shader_singlecolor.gdshader` for which number corresponds to which
+   `lpc_singlecolor.gdshader` for which number corresponds to which
    preset name (re-export after adding, renaming, or deleting a preset to
    refresh it). All three are clamped to the actual palette/preset count via
    `hint_range`, so the Inspector won't let you pick an out-of-range value.
@@ -440,8 +442,8 @@ clearcoat wherever a preset's emission is 0 (see the callout in
 [Godot integration](#11-godot-integration)). Disable it and reimport.
 If that's not it, the UV order may have slipped – run **Fix UV Maps** in
 Object Mode and export/import again. Also check that the surface's
-**Material Override** is set to `lpc_material_multicolor.tres` (painted
-meshes) or `lpc_material_singlecolor.tres` (meshes set up via instance
+**Material Override** is set to `lpc_multicolor.tres` (painted
+meshes) or `lpc_singlecolor.tres` (meshes set up via instance
 uniforms).
 
 **In Godot, palette cells bleed into each other / look blurry up close.**

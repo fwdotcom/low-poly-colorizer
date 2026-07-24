@@ -16,10 +16,10 @@ shader_type spatial;
 // ShaderMaterial resource needed per object; many instances can share this
 // one material and still each look different).
 //
-// For meshes painted in the add-on, use lpc_shader_multicolor.gdshader /
-// lpc_material_multicolor.tres instead (per-face data via vertex UVs).
+// For meshes painted in the add-on, use {{prefix}}multicolor.gdshader /
+// {{prefix}}multicolor.tres instead (per-face data via vertex UVs).
 
-#include "lpc_shader_common.gdshaderinc"
+#include "{{prefix}}common.gdshaderinc"
 
 uniform float emission_factor : hint_range(0.0, 16.0) = 1.0;
 uniform float clearcoat_roughness_value : hint_range(0.0, 1.0) = 0.0;
