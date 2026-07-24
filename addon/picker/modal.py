@@ -85,6 +85,15 @@ class LPC_OT_modal_palette_picker(bpy.types.Operator):
             ui_scale=ui_scale,
         )
         self.hover = None
+        # The cell the brush currently names (lpc_picker_result), marked as a
+        # persistent highlight so the picker opens on the active cell. None if
+        # it falls outside the current grid (e.g. a transient -1/-1).
+        result = context.window_manager.lpc_picker_result
+        self.selected = (
+            (result.x, result.y)
+            if 0 <= result.x < self.cols and 0 <= result.y < self.rows
+            else None
+        )
         self._panning = False
         self._pan_last = (0, 0)
 
@@ -195,19 +204,30 @@ class LPC_OT_modal_palette_picker(bpy.types.Operator):
                 shader.uniform_float("color", color)
                 batch.draw(shader)
 
+        # Current cell first (a persistent marker), hover on top -- so hovering
+        # the active cell still shows the white hover outline over the amber.
+        if self.selected is not None:
+            self._outline_cell(self.selected, (0.0, 0.0, 0.0, 1.0), 5.0)
+            self._outline_cell(
+                self.selected, constants.PICKER_SELECTED_COLOR, 2.5
+            )
+
         if self.hover is not None:
-            x0, y0, x1, y1 = self.geo.cell_rect(*self.hover)
-            outline_shader = gpu.shader.from_builtin("POLYLINE_UNIFORM_COLOR")
-            outline_shader.uniform_float("color", (1.0, 1.0, 1.0, 1.0))
-            outline_shader.uniform_float(
-                "viewportSize", (self.region.width, self.region.height)
-            )
-            outline_shader.uniform_float("lineWidth", 2.0)
-            outline_verts = ((x0, y0), (x1, y0), (x1, y1), (x0, y1), (x0, y0))
-            outline_batch = batch_for_shader(
-                outline_shader, "LINE_STRIP", {"pos": outline_verts}
-            )
-            outline_batch.draw(outline_shader)
+            self._outline_cell(self.hover, (1.0, 1.0, 1.0, 1.0), 2.0)
 
         gpu.state.blend_set("NONE")
+
+    def _outline_cell(self, cell, color, width):
+        """Stroke the outline of `cell` in `color` at `width` pixels (used for
+        both the current-cell marker and the hover highlight)."""
+        x0, y0, x1, y1 = self.geo.cell_rect(*cell)
+        shader = gpu.shader.from_builtin("POLYLINE_UNIFORM_COLOR")
+        shader.uniform_float("color", color)
+        shader.uniform_float(
+            "viewportSize", (self.region.width, self.region.height)
+        )
+        shader.uniform_float("lineWidth", width)
+        verts = ((x0, y0), (x1, y0), (x1, y1), (x0, y1), (x0, y0))
+        batch = batch_for_shader(shader, "LINE_STRIP", {"pos": verts})
+        batch.draw(shader)
 

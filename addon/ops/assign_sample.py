@@ -169,10 +169,18 @@ def any_uv_fix_needed(context):
 # --------------------------------------------------------------------------
 # Painting: index + UVs + material binding in one step. The slot the preset's
 # material occupies on each object is resolved lazily here (only objects you
-# actually paint accumulate the slot). On a material-less object slot 0 is
-# kept empty first, so unpainted faces (and new geometry) render the plain
-# default look instead of a preset; on an object with its own materials we
-# touch nothing extra and unpainted faces keep that material.
+# actually paint accumulate the slot).
+#
+# The two paint paths differ in slot 0 on a material-less object:
+#   * Partial (Edit Mode): slot 0 is kept EMPTY, so the faces you never select
+#     render the plain default -- and their material_index 0 keeps pointing at
+#     that empty slot. This is load-bearing (see _paint_partial).
+#   * Whole (Object Mode): NO empty slot -- every face is bound to the lpc slot,
+#     so an empty slot 0 would be unreferenced clutter (and a spurious material
+#     on Godot import). New geometry inherits the source face's paint via
+#     Blender's own attribute copy on extrude/subdivide, so nothing is lost.
+# On an object with its own materials we touch nothing extra either way and
+# unpainted faces keep that material.
 # --------------------------------------------------------------------------
 
 def _paint_partial(obj, x, y, preset, scene):
@@ -187,7 +195,12 @@ def _paint_partial(obj, x, y, preset, scene):
 
 
 def _paint_whole(obj, x, y, preset, scene):
-    preview_material.ensure_unpainted_front(obj)
+    # No empty slot 0 here (unlike _paint_partial): a whole-mesh paint binds
+    # EVERY face to the lpc slot, so an empty slot 0 would be unreferenced --
+    # dead weight in Blender and, worse, a spurious extra material on glTF/Godot
+    # import. It also protects nothing: extrude/subdivide/loop-cut copy the
+    # source face's lpc_uv0 + lpc_index + material_index, so new geometry
+    # inherits the paint regardless of which slot lpc sits on.
     slot = preview_material.ensure_lpc_slot(obj.data, scene)
     cols, rows = palette.cell_count(picker_interface.params_from_scene(scene))
     palette_uv0 = model_faces.encode_palette_uv(x, y, cols, rows)

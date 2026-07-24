@@ -27,10 +27,12 @@ regenerates an image -- no per-face mesh write, and (for palette edits) a
 capability the old baked-value design never had: already-painted faces pick
 up the new color automatically.
 
-There is NO default-brush material: unpainted faces carry no lpc material (an
-empty slot 0 on material-less objects, or the user's own material otherwise)
-and render the plain default. "Painted" means the face carries a preset uid
-(lpc_index != 0); the shared material on its slot just makes that visible.
+There is NO default-brush material: faces left unpainted carry no lpc material
+(an empty slot 0 reserved by the partial paint path on material-less objects,
+or the user's own material otherwise) and render the plain default. A
+whole-mesh paint binds every face to the lpc slot, so it reserves no such slot.
+"Painted" means the face carries a preset uid (lpc_index != 0); the shared
+material on its slot just makes that visible.
 
 The material is "lpc-managed" via the `lpc_managed` custom prop, so
 `has_real_materials` can tell an object's own materials from ours. The two
@@ -399,10 +401,18 @@ def ensure_lpc_slot(mesh, scene):
 
 
 def ensure_unpainted_front(obj):
-    """Keep slot 0 of a material-less object EMPTY so unpainted faces
-    (material_index 0, incl. new geometry) never point at the shared material
-    -- they render the plain default look instead. No-op on an object with its
-    own materials (unpainted faces keep the user's material there).
+    """Keep slot 0 of a material-less object EMPTY so faces left unpainted
+    (material_index 0) never point at the shared material -- they render the
+    plain default look instead. No-op on an object with its own materials
+    (unpainted faces keep the user's material there).
+
+    Called ONLY from the partial (Edit Mode) paint path, where genuinely
+    unpainted faces exist and need this empty slot. The whole-mesh path binds
+    every face to the lpc slot and deliberately does NOT reserve slot 0 (an
+    empty slot 0 would be unreferenced -- clutter in Blender and a spurious
+    material on Godot import). New geometry is not a reason to reserve it: an
+    extrude/subdivide copies the source face's material_index (and lpc_uv0 /
+    lpc_index), so it inherits the paint no matter which slot lpc occupies.
 
     Must run before the first ensure_lpc_slot on a fresh object, so the
     reserved empty slot lands at 0 and the lpc material goes to slot >= 1."""

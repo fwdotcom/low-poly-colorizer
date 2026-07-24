@@ -51,6 +51,12 @@ PREFIX = "lpc_"
 PICKER_FRAME_COLOR = (0.1, 0.1, 0.1, 1.0)  # RGBA, dark grey
 PICKER_FRAME_WIDTH = 3.0  # frame thickness in pixels (float; scaled by ui_scale)
 
+# Picker: marker for the CURRENTLY picked cell (the x/y already stored in
+# lpc_picker_result) so the overlay opens showing which cell is active. An
+# amber accent, distinct from the white hover outline; drawn over a dark
+# backing line so it reads on any palette color underneath.
+PICKER_SELECTED_COLOR = (1.0, 0.55, 0.1, 1.0)  # RGBA, amber
+
 # Default palette parameters for a fresh file. These seed the
 # LPC_PaletteParams defaults (picker/interface.py); the user can still change
 # them per scene in the Settings dialog.
