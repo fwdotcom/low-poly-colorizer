@@ -28,8 +28,12 @@ the modules.
 #     output FILENAMES (the templates are named {{prefix}}multicolor.tres.tpl
 #     etc., rendered like their bodies) and the names inside them -- the .tres
 #     resource_name (lpc_multicolor / lpc_singlecolor), the ExtResource shader
-#     paths + #include lines pointing between the files, and the exported
-#     texture filenames (lpc_palette.png / lpc_preset_lut.png)
+#     paths + #include lines pointing between the files, the exported texture
+#     filenames (lpc_palette.png / lpc_preset_lut.png), and -- via a PascalCase
+#     form of it derived in export/exporter.py -- the GDScript class_name of
+#     the exported look resource (LpcSinglecolorResource). That class_name is
+#     registered PROJECT-WIDE in Godot, so two LPC exports sharing one Godot
+#     project must use different prefixes.
 #
 # IMPORTANT: choose this BEFORE painting any faces. Changing it on a file
 # that already has painted faces orphans the existing lpc_* data (fresh ones

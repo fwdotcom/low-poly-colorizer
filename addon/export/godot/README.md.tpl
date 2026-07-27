@@ -56,3 +56,46 @@ the imported mesh, set the surface's **Material Override** to
 `{{prefix}}multicolor.tres`. For meshes **not** painted in the add-on, use
 `{{prefix}}singlecolor.tres` and set its per-instance shader parameters in the
 `MeshInstance3D` inspector.
+
+## Named looks — `{{prefix}}singlecolor_resource.gd`
+
+`{{prefix}}singlecolor.tres` is meant to be **shared**. Every mesh using it can
+still look different, because its palette cell, preset and emission are
+*instance* uniforms: they live on the `MeshInstance3D`, not on the material.
+
+`{{prefix}}singlecolor_resource.gd` wraps those four values as a resource, so a
+look can be authored once, saved as a `.tres` ("Gold", "SignalRed", …) and
+reused by name:
+
+```gdscript
+@export var stop: {{prefix_pascal}}SinglecolorResource
+@export var go: {{prefix_pascal}}SinglecolorResource
+@export var lamp: MeshInstance3D
+
+func set_clear(clear: bool) -> void:
+	(go if clear else stop).apply_to(lamp)
+```
+
+The lamp's **Material Override** is still yours to set, as described above —
+the resource only carries values, it holds no reference to the material and so
+does not care where in the project the exported files live.
+
+The script also carries a `Preset` enum generated from the add-on's preset
+list, so you write `Preset.EMISSION` instead of looking the number up in the
+legend comment inside `{{prefix}}singlecolor.gdshader`. Godot prettifies the
+member names in the inspector dropdown, so a preset called “Signal Red” shows up
+as `Signal Red` there. Names are folded to identifiers on the way in and
+non-ASCII is stripped (“Grün” becomes `GRUN`), so the exact spelling only
+survives in that legend comment.
+
+Three things worth knowing:
+
+- **`class_name` is project-global in Godot.** Two LPC exports living in one
+  project need two different prefixes, otherwise Godot reports a duplicate
+  class name.
+- **Instance uniforms apply to a whole `GeometryInstance3D`**, not to a single
+  surface. Two parts of one `MeshInstance3D` cannot show two different looks —
+  split them into separate nodes if they must.
+- **Resources are references.** All your signals share the same two `.tres`
+  files. That is usually what you want; if you *modify* one at runtime instead
+  of just applying it, every user of it changes too.

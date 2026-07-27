@@ -29,6 +29,7 @@ the active namespace prefix is.
 
 import os
 import re
+import unicodedata
 
 import bpy
 
@@ -66,6 +67,63 @@ def _preset_legend(scene):
     return "\n".join(f"//   {i} = {p.name}" for i, p in enumerate(presets))
 
 
+def _pascal(prefix):
+    """`constants.PREFIX` as a PascalCase identifier fragment ("lpc_" -> "Lpc"),
+    for the exported GDScript `class_name`. Derived rather than added as a
+    second constant so the namespace stays the single knob constants.PREFIX
+    promises to be -- a `class_name` is registered project-wide in Godot, so a
+    clash between two LPC exports living in one project is resolved exactly
+    like every other name clash here: by changing PREFIX.
+
+    `str.capitalize` is deliberately not used -- it lowercases the rest of each
+    part ("myGame_" -> "Mygame" instead of "MyGame")."""
+    return "".join(p[:1].upper() + p[1:] for p in prefix.split("_") if p)
+
+
+def _preset_identifiers(scene):
+    """The preset names as GDScript enum member identifiers, index-aligned with
+    `scene.lpc_presets` so a member's VALUE is the same list position the
+    shader's `lpc_preset_position` takes.
+
+    Preset names are free text and enum members are identifiers, so the mapping
+    is lossy -- but it must be total, because generated code that does not parse
+    breaks the whole export. Non-ASCII is folded ("Grün" -> GRUN), any run of
+    other characters collapses to one underscore, and a name that folds to
+    nothing or to a leading digit gets a PRESET prefix. Uppercasing is also what
+    keeps a name from ever colliding with a GDScript keyword (those are all
+    lowercase). Names that collide only after folding ("Red Light" /
+    "Red-Light") get a numeric suffix -- two members of the same name would be a
+    parse error.
+
+    An empty preset list yields a single PRESET_0 member, mirroring
+    `build_context`'s `max(len(...), 1)` preset_count: the shader always has one
+    (garbage) LUT texel to address, so the enum must be able to name it."""
+    idents = []
+    used = set()
+    for preset in scene.lpc_presets:
+        folded = unicodedata.normalize("NFKD", preset.name.replace("ß", "ss"))
+        ascii_only = folded.encode("ascii", "ignore").decode("ascii")
+        ident = re.sub(r"[^A-Za-z0-9]+", "_", ascii_only).strip("_").upper()
+        if not ident:
+            ident = "PRESET"
+        elif ident[0].isdigit():
+            ident = "PRESET_" + ident
+        base, n = ident, 1
+        while ident in used:
+            n += 1
+            ident = f"{base}_{n}"
+        used.add(ident)
+        idents.append(ident)
+    return idents or ["PRESET_0"]
+
+
+def _preset_enum(identifiers):
+    """The `enum Preset` member lines, tab-indented (GDScript style); the
+    template supplies the braces around them, like `_preset_legend`'s caller
+    supplies the surrounding comment."""
+    return "\n".join(f"\t{ident} = {i}," for i, ident in enumerate(identifiers))
+
+
 def build_context(scene):
     """The substitution values available to every template -- engine-agnostic
     material parameters from the scene. Unknown placeholders in a template are
@@ -73,6 +131,7 @@ def build_context(scene):
     g = scene.lpc_globals
     cols, rows = model_palette.cell_count(picker_interface.params_from_scene(scene))
     preset_count = max(len(scene.lpc_presets), 1)
+    preset_identifiers = _preset_identifiers(scene)
     return {
         # Namespace prefix the .tres templates prepend to their own
         # resource_name ("{{prefix}}multicolor" / "{{prefix}}singlecolor",
@@ -80,6 +139,11 @@ def build_context(scene):
         # distinguishing part after the prefix, so there is no shared
         # material base name to carry.
         "prefix": constants.PREFIX,
+        # The same namespace prefix as an identifier fragment, for the one
+        # exported file that needs a GDScript `class_name`
+        # ({{prefix}}singlecolor_resource.gd). Same rule as the filenames: the
+        # literal part after it lives in the template.
+        "prefix_pascal": _pascal(constants.PREFIX),
         "emission_factor": _fmt(g.emission_factor),
         "clearcoat_roughness": _fmt(g.clearcoat_roughness),
         "preset_count": str(preset_count),
@@ -98,6 +162,14 @@ def build_context(scene):
         "palette_image_filename": PALETTE_IMAGE_FILENAME,
         "preset_lut_image_filename": PRESET_LUT_IMAGE_FILENAME,
         "preset_legend": _preset_legend(scene),
+        # The same list-position <-> preset-name mapping as preset_legend, but
+        # as real GDScript enum members instead of a comment block -- the
+        # singlecolor variant's preset index is the one exported value a human
+        # types by hand, and `Preset.EMISSION` beats looking the number up.
+        # `_first` is only there so the resource's `preset` export can have a
+        # typed default without assuming a member name.
+        "preset_enum": _preset_enum(preset_identifiers),
+        "preset_enum_first": preset_identifiers[0],
     }
 
 
