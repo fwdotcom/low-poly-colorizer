@@ -1,3 +1,4 @@
+@tool
 # SPDX-FileCopyrightText: 2026 Frank Winter <https://www.frankwinter.com/>
 # SPDX-License-Identifier: MIT
 #
