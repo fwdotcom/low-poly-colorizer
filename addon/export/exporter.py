@@ -129,7 +129,8 @@ def build_context(scene):
     material parameters from the scene. Unknown placeholders in a template are
     left untouched, unused keys here are simply ignored."""
     g = scene.lpc_globals
-    cols, rows = model_palette.cell_count(picker_interface.params_from_scene(scene))
+    params = picker_interface.params_from_scene(scene)
+    cols, rows = model_palette.cell_count(params)
     preset_count = max(len(scene.lpc_presets), 1)
     preset_identifiers = _preset_identifiers(scene)
     return {
@@ -159,6 +160,22 @@ def build_context(scene):
         "palette_rows": str(rows),
         "palette_cols_max": str(cols - 1),
         "palette_rows_max": str(rows - 1),
+        # The palette PARAMETERS -- the `model/palette.color_at` inputs, so a
+        # target can reproduce cell colors procedurally instead of sampling
+        # the exported PNG (the Godot resource script does; the shaders do
+        # not, they have the texture). Everything the palette is derived from
+        # travels here, whether or not a template uses all of it yet.
+        #
+        # `params["cols"]` -- the number of HUE steps around the wheel -- is
+        # deliberately NOT among them: palette_cols above is cell_count's
+        # total, i.e. that same number plus the optional greyscale column, so
+        # a target needing the hue divisor subtracts the flag below and is
+        # done. One exported value less to keep consistent with the rest.
+        "palette_has_greyscale": "true" if params["add_greyscale"] else "false",
+        "palette_saturation": _fmt(params["saturation"]),
+        "palette_brightness": _fmt(params["brightness"]),
+        "palette_tint": _fmt(params["tint"]),
+        "palette_shade": _fmt(params["shade"]),
         "palette_image_filename": PALETTE_IMAGE_FILENAME,
         "preset_lut_image_filename": PRESET_LUT_IMAGE_FILENAME,
         "preset_legend": _preset_legend(scene),

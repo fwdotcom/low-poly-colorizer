@@ -80,6 +80,24 @@ The lamp's **Material Override** is still yours to set, as described above —
 the resource only carries values, it holds no reference to the material and so
 does not care where in the project the exported files live.
 
+It also knows the palette's actual colors: `color_at(x, y)` returns the color of
+a palette cell as an opaque `Color`, and `get_color()` does the same for the cell
+a look holds — for the things that must match the mesh but never run the shader
+(a UI swatch, a light, a particle modulate):
+
+```gdscript
+$Swatch.color = go.get_color()
+$Lamp.light_color = {{prefix_pascal}}SinglecolorResource.color_at(2, 3)
+```
+
+The colors are *computed*, not read from the texture: the script carries the
+palette's parameters as `PALETTE_*` constants and rebuilds a cell's color from
+them, the same way the add-on does. So no texture is loaded, no import setting
+can distort the result — and the constants are there for your own code to build
+on. What comes back differs from what the shader samples only in the last digits
+(the PNG is 8-bit per channel), so use it for display, not for equality
+comparisons. Re-export after changing the palette to refresh the constants.
+
 The script also carries a `Preset` enum generated from the add-on's preset
 list, so you write `Preset.EMISSION` instead of looking the number up in the
 legend comment inside `{{prefix}}singlecolor.gdshader`. Godot prettifies the

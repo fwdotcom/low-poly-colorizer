@@ -41,6 +41,45 @@ enum Preset {
 }
 
 
+## The palette parameters as they stood at the last export -- the full input
+## to [method color_at], which reproduces any cell's color from them rather
+## than reading the exported {{prefix}}palette.png back. That keeps this
+## script free of references to the other exported files, for the same reason
+## [method apply_to] holds no reference to the material.
+##
+## Public on purpose: anything else that needs to reason about the palette
+## (a swatch grid, a "nearest cell to this color" lookup, an editor tool)
+## should build on these instead of hard-coding a second copy.
+##
+## Re-exporting after a palette change rewrites this block. Already-authored
+## .tres files keep their cell coordinates and simply take on the new color
+## there -- exactly what happens to the painted meshes.
+
+## Total columns, including the greyscale column when there is one -- the
+## bound [member palette_cell_x] is clamped to.
+const PALETTE_COLS: int = {{palette_cols}}
+
+## Rows in the grid, top (lightest) to bottom (darkest).
+const PALETTE_ROWS: int = {{palette_rows}}
+
+## Whether column 0 is a white-to-black ramp instead of a hue. The remaining
+## columns are the hues, so this also says how much of the grid's width is not
+## part of the color wheel.
+const PALETTE_HAS_GREYSCALE: bool = {{palette_has_greyscale}}
+
+## Saturation of the middle row (the base color).
+const PALETTE_SATURATION: float = {{palette_saturation}}
+
+## Brightness of the middle row (the base color).
+const PALETTE_BRIGHTNESS: float = {{palette_brightness}}
+
+## How far the topmost row is mixed toward white (0 = like the middle row).
+const PALETTE_TINT: float = {{palette_tint}}
+
+## How far the bottommost row is mixed toward black (0 = like the middle row).
+const PALETTE_SHADE: float = {{palette_shade}}
+
+
 ## Palette column, in the same numbering the picker and the shader's
 ## `lpc_palette_cell_x` use.
 @export_range(0, {{palette_cols_max}}) var palette_cell_x: int = 0
@@ -75,3 +114,66 @@ func apply_to(instance: GeometryInstance3D) -> void:
 	instance.set_instance_shader_parameter(&"lpc_palette_cell_y", palette_cell_y)
 	instance.set_instance_shader_parameter(&"lpc_preset_position", preset)
 	instance.set_instance_shader_parameter(&"lpc_emission_override", emission_override)
+
+
+## The color of palette cell ([param x], [param y]) as an opaque [Color] --
+## the palette carries no alpha, so it stays at 1.0.
+##
+## Computed from the PALETTE_* constants above, the same construction the
+## add-on's own palette uses: column 0 is a white-to-black ramp when the
+## palette has a greyscale column, the remaining columns split the color wheel
+## evenly between them; the middle row is the base color, rows above it fan
+## toward white by up to [constant PALETTE_TINT], rows below toward black by
+## up to [constant PALETTE_SHADE].
+##
+## Static, because a palette is one per export and not per look:
+## [code]{{prefix_pascal}}SinglecolorResource.color_at(2, 3)[/code] works
+## without a resource in hand.
+##
+## Coordinates outside the grid clamp to the edge cell instead of erroring --
+## the same thing the shader's `repeat_disable` sampler does with an
+## out-of-range UV, so both ends of the pipeline agree on nonsense input.
+##
+## What comes back is a recomputation, not a texture read: expect the last
+## digits to differ from what the shader samples out of
+## {{prefix}}palette.png, which is quantized to 8 bits per channel on its way
+## through the PNG. Nothing an eye resolves, but do not compare the two for
+## equality.
+static func color_at(x: int, y: int) -> Color:
+	var cx := clampi(x, 0, PALETTE_COLS - 1)
+	var cy := clampi(y, 0, PALETTE_ROWS - 1)
+	# 0.0 = top row (lightest) .. 1.0 = bottom row (darkest); a single-row
+	# palette is all base color, hence the midpoint.
+	var t := float(cy) / float(PALETTE_ROWS - 1) if PALETTE_ROWS > 1 else 0.5
+
+	if PALETTE_HAS_GREYSCALE and cx == 0:
+		var grey := 1.0 - t
+		return Color(grey, grey, grey)
+
+	# The greyscale column sits in front of the wheel, so it shifts the column
+	# index and the number of hues to spread over by the same one.
+	var wheel_start := 1 if PALETTE_HAS_GREYSCALE else 0
+	var hue := float(cx - wheel_start) / float(PALETTE_COLS - wheel_start)
+	var saturation := PALETTE_SATURATION
+	var brightness := PALETTE_BRIGHTNESS
+	if t <= 0.5:
+		var row_factor := 1.0 - t / 0.5  # 1 = topmost .. 0 = middle
+		saturation = PALETTE_SATURATION * (1.0 - PALETTE_TINT * row_factor)
+		brightness = PALETTE_BRIGHTNESS + (1.0 - PALETTE_BRIGHTNESS) * PALETTE_TINT * row_factor
+	else:
+		var row_factor := (t - 0.5) / 0.5  # 0 = middle .. 1 = bottommost
+		saturation = PALETTE_SATURATION + (1.0 - PALETTE_SATURATION) * PALETTE_SHADE * row_factor
+		brightness = PALETTE_BRIGHTNESS * (1.0 - PALETTE_SHADE * row_factor)
+
+	return Color.from_hsv(hue, clampf(saturation, 0.0, 1.0), clampf(brightness, 0.0, 1.0))
+
+
+## This look's own color: [method color_at] for the cell stored in
+## [member palette_cell_x] / [member palette_cell_y].
+##
+## For everything that should match the mesh without running the shader -- a UI
+## swatch, a [Light3D] color, a particle modulate, a fade the tween drives.
+## Note that this is the palette color alone; the preset's emission is not
+## folded in, so a lamp look does not come back brighter here.
+func get_color() -> Color:
+	return color_at(palette_cell_x, palette_cell_y)
