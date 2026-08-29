@@ -1,4 +1,4 @@
-﻿# SPDX-FileCopyrightText: 2026 Frank Winter <https://www.frankwinter.com/>
+# SPDX-FileCopyrightText: 2026 Frank Winter <https://www.frankwinter.com/>
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # This file is part of Low Poly Colorizer (LPC). <https://github.com/wasdcat/low-poly-colorizer>
@@ -24,6 +24,8 @@ the modules.
 #   - the two managed preview images + their stamp keys
 #     (ui/preview_material.py): lpc_palette / lpc_preset_lut,
 #     lpc_palette_managed / lpc_preset_lut_managed
+#   - the shared Geometry Node group datablock + its stamp key
+#     (ui/geometry_nodes.py): lpc_set_material, lpc_geo_nodes_managed
 #   - the entire exported Godot fileset (export/): the prefix feeds both the
 #     output FILENAMES (the templates are named {{prefix}}multicolor.tres.tpl
 #     etc., rendered like their bodies) and the names inside them -- the .tres

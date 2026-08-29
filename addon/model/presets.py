@@ -1,4 +1,4 @@
-﻿# SPDX-FileCopyrightText: 2026 Frank Winter <https://www.frankwinter.com/>
+# SPDX-FileCopyrightText: 2026 Frank Winter <https://www.frankwinter.com/>
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # This file is part of Low Poly Colorizer (LPC). <https://github.com/wasdcat/low-poly-colorizer>
@@ -85,14 +85,23 @@ if bpy is not None:
         sibling cycle."""
         from ..ui import preview_material
 
-        preview_material.update_preset_lut(context.scene)
+    def _preset_name_changed(self, context):
+        """A preset's name changed -> update the Geometry Node group's Menu
+        Switch items if the node group exists."""
+        if context is None or getattr(context, "scene", None) is None:
+            return
+        from ..ui import geometry_nodes
+
+        geometry_nodes.update_lpc_geo_node_group(context.scene)
 
     class LPC_Preset(bpy.types.PropertyGroup):
         """One named parameter combination. `uid` is set once by `new_preset`
         and never changes; it is the identity faces reference via `lpc_index`.
         The name is purely cosmetic (a readable label / Godot surface hint)."""
 
-        name: bpy.props.StringProperty(name="Name", default="Preset")
+        name: bpy.props.StringProperty(
+            name="Name", default="Preset", update=_preset_name_changed
+        )
         uid: bpy.props.IntProperty(
             name="UID", default=UNASSIGNED,
             description="Immutable preset identity",
@@ -204,9 +213,11 @@ if bpy is not None:
         keeps the per-face `lpc_uv1.x` positions AND the Blender-preview LUT
         image/divisor node in sync with the current list."""
         from ..ui import preview_material
+        from ..ui import geometry_nodes
 
         rescatter_all_list_positions(scene)
         preview_material.update_preset_lut(scene)
+        geometry_nodes.update_lpc_geo_node_group(scene)
 
     def preset_refcounts(scene):
         """Lazy refcount per preset (aligned with `scene.lpc_presets`): how

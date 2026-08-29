@@ -1,4 +1,4 @@
-﻿# SPDX-FileCopyrightText: 2026 Frank Winter <https://www.frankwinter.com/>
+# SPDX-FileCopyrightText: 2026 Frank Winter <https://www.frankwinter.com/>
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # This file is part of Low Poly Colorizer (LPC). <https://github.com/wasdcat/low-poly-colorizer>
@@ -25,6 +25,7 @@ from .ops import assign_sample as ops_assign_sample
 from .ops import presets as ops_presets
 from .picker import interface as picker_interface
 from .picker import modal as picker_modal
+from .ui import geometry_nodes as ui_geometry_nodes
 from .ui import panel as ui_panel
 
 classes = (
@@ -45,6 +46,7 @@ classes = (
     ops_presets.LPC_OT_preset_export_json,
     ops_presets.LPC_OT_preset_import_json,
     export_exporter.LPC_OT_export,
+    ui_geometry_nodes.LPC_OT_add_geo_node_group,
     ui_panel.LPC_OT_palette_settings,
     ui_panel.LPC_UL_presets,
     ui_panel.LPC_MT_presets,

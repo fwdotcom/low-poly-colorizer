@@ -113,8 +113,10 @@ def _grid_params_changed(self, context):
         finally:
             _suppress_live_apply = outer
     from ..ui import preview_material
+    from ..ui import geometry_nodes
 
     preview_material.update_palette_image(context.scene)
+    geometry_nodes.update_lpc_geo_node_group(context.scene)
 
 
 def _palette_image_changed(self, context):

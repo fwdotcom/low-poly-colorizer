@@ -1,4 +1,4 @@
-﻿# SPDX-FileCopyrightText: 2026 Frank Winter <https://www.frankwinter.com/>
+# SPDX-FileCopyrightText: 2026 Frank Winter <https://www.frankwinter.com/>
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # This file is part of Low Poly Colorizer (LPC). <https://github.com/wasdcat/low-poly-colorizer>
@@ -154,6 +154,12 @@ class LPC_MT_presets(bpy.types.Menu):
         layout.operator("lpc.preset_export_json", text="Export", icon="EXPORT")
         layout.separator()
         layout.operator("lpc.preset_load_defaults", icon="PRESET")
+        layout.separator()
+        layout.operator(
+            "lpc.add_geo_node_group",
+            text="Create Geometry Node Group",
+            icon="GEOMETRY_NODES",
+        )
 
 
 class LPC_PT_palette_panel(bpy.types.Panel):

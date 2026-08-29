@@ -1,8 +1,8 @@
-﻿# SPDX-FileCopyrightText: 2026 Frank Winter <https://www.frankwinter.com/>
+# SPDX-FileCopyrightText: 2026 Frank Winter <https://www.frankwinter.com/>
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # This file is part of Low Poly Colorizer (LPC). <https://github.com/wasdcat/low-poly-colorizer>
 # A WASDCAT Games project. <https://www.wasdcat.com/>
 
-"""N-panel and WYSIWYG preview material."""
+"""N-panel, WYSIWYG preview material, and Geometry Node group."""
 

@@ -227,6 +227,8 @@ Via the **`▾` menu** next to the list:
   added – re-importing the same file changes nothing.
 - **Load Default Presets** – add the bundled default presets (existing presets
   with the same name are set to the default values).
+- **Create Geometry Node Group** – create the `lpc_set_material` node group
+  (with dynamic preset Menu Switch dropdown) and assign it to the active mesh.
 
 ---
 
@@ -264,7 +266,7 @@ In the footer, choose an **export template set** on the left via the dropdown
 **Export button (⤓)** on the right. A folder dialog opens – the files are
 written into the chosen folder.
 
-For **Godot Materials**, eight files are produced:
+For **Godot Materials**, nine files are produced:
 
 - `README.md` – Godot-side import-settings notes (the two textures are data,
   not color – see the [texture import callouts](#11-godot-integration) below).
@@ -280,12 +282,15 @@ For **Godot Materials**, eight files are produced:
   meshes that did **not** come from this add-on (no per-face data at all): one
   palette cell + one preset for the **whole mesh**, set per object in Godot
   (see below).
+- `lpc_singlecolor_resource.gd` – a GDScript resource helper (`@tool`) to author,
+  share, and apply named looks with typed `Preset` enums, change signals, and
+  palette color calculations.
 
 The export writes **only** these files. The geometry with its per-face data
 reaches Godot separately via the `.blend` import (see the next section).
 
 > **When do I need to re-export?** Only when something that ends up *in
-> these seven files* changed: preset **values** (sliders), the preset
+> these nine files* changed: preset **values** (sliders), the preset
 > **list** (add/delete/duplicate/import/load defaults – the preset count is
 > baked into the shader), palette **settings**, or the **globals**
 > (emission factor / clearcoat roughness). Re-assigning *which* preset a
@@ -308,7 +313,7 @@ reaches Godot separately via the `.blend` import (see the next section).
 Godot imports the `.blend` directly (via Blender's glTF export). This is how
 the look travels across:
 
-1. Place the **export folder** (all eight files above) and your **`.blend`**
+1. Place the **export folder** (all nine files above) and your **`.blend`**
    into your Godot project.
 2. Godot imports the `.blend` as a scene. All painted faces form **one
    surface** (because they share a single material).
