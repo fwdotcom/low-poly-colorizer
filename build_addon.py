@@ -32,12 +32,17 @@ def read_manifest():
 
 
 def read_branch():
-    result = subprocess.run(
-        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-        cwd=ROOT, capture_output=True, text=True, check=True,
-    )
-    branch = result.stdout.strip()
-    return re.sub(r"[^A-Za-z0-9._-]+", "-", branch)
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=ROOT, capture_output=True, text=True, check=False,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            branch = result.stdout.strip()
+            return re.sub(r"[^A-Za-z0-9._-]+", "-", branch)
+    except Exception:
+        pass
+    return "main"
 
 
 def build():

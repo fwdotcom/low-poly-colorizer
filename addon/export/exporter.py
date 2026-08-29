@@ -1,4 +1,4 @@
-﻿# SPDX-FileCopyrightText: 2026 Frank Winter <https://www.frankwinter.com/>
+# SPDX-FileCopyrightText: 2026 Frank Winter <https://www.frankwinter.com/>
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # This file is part of Low Poly Colorizer (LPC). <https://github.com/wasdcat/low-poly-colorizer>
@@ -31,14 +31,24 @@ import os
 import re
 import unicodedata
 
-import bpy
+try:
+    import bpy
+except ModuleNotFoundError:  # plain-python tests without Blender
+    bpy = None
 
-from . import registry
-from .. import constants
-from ..model import palette as model_palette
-from ..model import presets as model_presets
-from ..picker import interface as picker_interface
-from ..ui import preview_material
+try:
+    from . import registry
+    from .. import constants
+    from ..model import palette as model_palette
+    from ..model import presets as model_presets
+    from ..picker import interface as picker_interface
+    from ..ui import preview_material
+except ImportError:  # plain-python tests put the addon dir on sys.path
+    from export import registry
+    import constants
+    from model import palette as model_palette
+    from model import presets as model_presets
+    from picker import interface as picker_interface
 
 # Filenames the palette + preset LUT textures are written under in the export
 # folder -- the .tres templates reference them via the {{palette_image_filename}}
@@ -297,57 +307,58 @@ def _uv_problem_count(scene):
 EXPORT_TARGET_ITEMS = registry.enum_items()
 
 
-class LPC_OT_export(bpy.types.Operator):
-    """Export the selected template set into a chosen folder: the shader(s), material(s), and the palette + preset LUT textures. Pick the target in the dropdown; the per-face references (palette cell + preset index) travel in the lpc UV maps, so import the .blend separately"""
+if bpy is not None:
+    class LPC_OT_export(bpy.types.Operator):
+        """Export the selected template set into a chosen folder: the shader(s), material(s), and the palette + preset LUT textures. Pick the target in the dropdown; the per-face references (palette cell + preset index) travel in the lpc UV maps, so import the .blend separately"""
 
-    bl_idname = "lpc.export"
-    bl_label = "Export"
-    # UNDO (not just REGISTER): writes scene.lpc_export_fingerprint
-    # (is_export_dirty), which needs its own undo-snapshot boundary so a
-    # later undo can't jump past it to a stale pre-export value -- see
-    # is_export_dirty's docstring.
-    bl_options = {"REGISTER", "UNDO"}
+        bl_idname = "lpc.export"
+        bl_label = "Export"
+        # UNDO (not just REGISTER): writes scene.lpc_export_fingerprint
+        # (is_export_dirty), which needs its own undo-snapshot boundary so a
+        # later undo can't jump past it to a stale pre-export value -- see
+        # is_export_dirty's docstring.
+        bl_options = {"REGISTER", "UNDO"}
 
-    # Directory picker (every output filename is determined by the templates).
-    directory: bpy.props.StringProperty(subtype="DIR_PATH")
-    filter_folder: bpy.props.BoolProperty(default=True, options={"HIDDEN"})
+        # Directory picker (every output filename is determined by the templates).
+        directory: bpy.props.StringProperty(subtype="DIR_PATH")
+        filter_folder: bpy.props.BoolProperty(default=True, options={"HIDDEN"})
 
-    def invoke(self, context, event):
-        context.window_manager.fileselect_add(self)
-        return {"RUNNING_MODAL"}
+        def invoke(self, context, event):
+            context.window_manager.fileselect_add(self)
+            return {"RUNNING_MODAL"}
 
-    def execute(self, context):
-        scene = context.scene
-        set_id = scene.lpc_export_target
-        entry = registry.get(set_id)
-        if entry is None:
-            self.report({"ERROR"}, "No export target selected")
-            return {"CANCELLED"}
-        out_dir = self.directory
-        if not out_dir or not os.path.isdir(out_dir):
-            self.report({"ERROR"}, "Choose an existing output folder")
-            return {"CANCELLED"}
+        def execute(self, context):
+            scene = context.scene
+            set_id = scene.lpc_export_target
+            entry = registry.get(set_id)
+            if entry is None:
+                self.report({"ERROR"}, "No export target selected")
+                return {"CANCELLED"}
+            out_dir = self.directory
+            if not out_dir or not os.path.isdir(out_dir):
+                self.report({"ERROR"}, "Choose an existing output folder")
+                return {"CANCELLED"}
 
-        try:
-            written = render_set(set_id, out_dir, build_context(scene))
-            written += write_textures(scene, out_dir)
-        except (OSError, ValueError) as exc:
-            self.report({"ERROR"}, f"Export failed: {exc}")
-            return {"CANCELLED"}
-        _mark_exported(scene)
+            try:
+                written = render_set(set_id, out_dir, build_context(scene))
+                written += write_textures(scene, out_dir)
+            except (OSError, ValueError) as exc:
+                self.report({"ERROR"}, f"Export failed: {exc}")
+                return {"CANCELLED"}
+            _mark_exported(scene)
 
-        label = entry["label"]
-        broken = _uv_problem_count(scene)
-        if broken:
-            self.report(
-                {"WARNING"},
-                f"Exported {label} ({len(written)} file(s)), but {broken} "
-                f"mesh(es) have the lpc UV maps missing or out of order -- run "
-                f"'Fix UV Maps' in Object Mode so the params import correctly",
-            )
-        else:
-            self.report(
-                {"INFO"}, f"Exported {label} ({len(written)} file(s))"
-            )
-        return {"FINISHED"}
+            label = entry["label"]
+            broken = _uv_problem_count(scene)
+            if broken:
+                self.report(
+                    {"WARNING"},
+                    f"Exported {label} ({len(written)} file(s)), but {broken} "
+                    f"mesh(es) have the lpc UV maps missing or out of order -- run "
+                    f"'Fix UV Maps' in Object Mode so the params import correctly",
+                )
+            else:
+                self.report(
+                    {"INFO"}, f"Exported {label} ({len(written)} file(s))"
+                )
+            return {"FINISHED"}
 

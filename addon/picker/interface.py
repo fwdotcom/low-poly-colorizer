@@ -1,4 +1,4 @@
-﻿# SPDX-FileCopyrightText: 2026 Frank Winter <https://www.frankwinter.com/>
+# SPDX-FileCopyrightText: 2026 Frank Winter <https://www.frankwinter.com/>
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # This file is part of Low Poly Colorizer (LPC). <https://github.com/wasdcat/low-poly-colorizer>
@@ -27,10 +27,17 @@ NOT paint (Sample, grid clamping) go through `set_picked_cell(...,
 live=False)` / the suppression flag.
 """
 
-import bpy
+try:
+    import bpy
+except ModuleNotFoundError:  # plain-python tests without Blender
+    bpy = None
 
-from .. import constants
-from ..model import palette
+try:
+    from .. import constants
+    from ..model import palette
+except ImportError:  # plain-python tests put the addon dir on sys.path
+    import constants
+    from model import palette
 
 # True while the result is being written programmatically -- the x/y
 # update callbacks must not live-apply then (Sample would repaint the
@@ -122,83 +129,88 @@ def _palette_image_changed(self, context):
     preview_material.update_palette_image(context.scene)
 
 
-class LPC_PaletteParams(bpy.types.PropertyGroup):
-    """Palette parameters (layer-1 `params`), project-wide (Scene)."""
+if bpy is not None:
+    class LPC_PaletteParams(bpy.types.PropertyGroup):
+        """Palette parameters (layer-1 `params`), project-wide (Scene)."""
 
-    cols: bpy.props.IntProperty(
-        name="Columns", default=constants.DEFAULT_PALETTE_COLS, min=1, max=64,
-        description="Number of hue columns (excluding the optional greyscale column)",
-        update=_grid_params_changed,
-    )
-    rows: bpy.props.IntProperty(
-        name="Rows", default=constants.DEFAULT_PALETTE_ROWS, min=1, max=64,
-        description="Number of rows",
-        update=_grid_params_changed,
-    )
-    add_greyscale: bpy.props.BoolProperty(
-        name="Add Greyscale Column",
-        default=constants.DEFAULT_PALETTE_ADD_GREYSCALE,
-        description="Prepend an extra column with a plain white-to-black ramp",
-        update=_grid_params_changed,
-    )
-    saturation: bpy.props.FloatProperty(
-        name="Saturation", default=constants.DEFAULT_PALETTE_SATURATION,
-        min=0.0, max=1.0,
-        description="Saturation of the middle row (base color)",
-        update=_palette_image_changed,
-    )
-    brightness: bpy.props.FloatProperty(
-        name="Brightness", default=constants.DEFAULT_PALETTE_BRIGHTNESS,
-        min=0.0, max=1.0,
-        description="Brightness of the middle row (base color)",
-        update=_palette_image_changed,
-    )
-    tint: bpy.props.FloatProperty(
-        name="Tint", default=constants.DEFAULT_PALETTE_TINT, min=0.0, max=1.0,
-        description="How much the top row is mixed toward white (0 = like the middle row, 1 = white)",
-        update=_palette_image_changed,
-    )
-    shade: bpy.props.FloatProperty(
-        name="Shade", default=constants.DEFAULT_PALETTE_SHADE, min=0.0, max=1.0,
-        description="How much the bottom row is mixed toward black (0 = like the middle row, 1 = black)",
-        update=_palette_image_changed,
-    )
+        cols: bpy.props.IntProperty(
+            name="Columns", default=constants.DEFAULT_PALETTE_COLS, min=1, max=64,
+            description="Number of hue columns (excluding the optional greyscale column)",
+            update=_grid_params_changed,
+        )
+        rows: bpy.props.IntProperty(
+            name="Rows", default=constants.DEFAULT_PALETTE_ROWS, min=1, max=64,
+            description="Number of rows",
+            update=_grid_params_changed,
+        )
+        add_greyscale: bpy.props.BoolProperty(
+            name="Add Greyscale Column",
+            default=constants.DEFAULT_PALETTE_ADD_GREYSCALE,
+            description="Prepend an extra column with a plain white-to-black ramp",
+            update=_grid_params_changed,
+        )
+        saturation: bpy.props.FloatProperty(
+            name="Saturation", default=constants.DEFAULT_PALETTE_SATURATION,
+            min=0.0, max=1.0,
+            description="Saturation of the middle row (base color)",
+            update=_palette_image_changed,
+        )
+        brightness: bpy.props.FloatProperty(
+            name="Brightness", default=constants.DEFAULT_PALETTE_BRIGHTNESS,
+            min=0.0, max=1.0,
+            description="Brightness of the middle row (base color)",
+            update=_palette_image_changed,
+        )
+        tint: bpy.props.FloatProperty(
+            name="Tint", default=constants.DEFAULT_PALETTE_TINT, min=0.0, max=1.0,
+            description="How much the top row is mixed toward white (0 = like the middle row, 1 = white)",
+            update=_palette_image_changed,
+        )
+        shade: bpy.props.FloatProperty(
+            name="Shade", default=constants.DEFAULT_PALETTE_SHADE, min=0.0, max=1.0,
+            description="How much the bottom row is mixed toward black (0 = like the middle row, 1 = black)",
+            update=_palette_image_changed,
+        )
 
 
 def _result_color_get(self):
     """Live-derived swatch color for the picked cell (Invariant 4: colors
     come exclusively from `palette.color_at`, never stored)."""
-    scene = bpy.context.scene
-    if scene is None:
+    try:
+        scene = getattr(bpy.context, "scene", None)
+        if scene is None:
+            return (0.0, 0.0, 0.0, 1.0)
+        params = params_from_scene(scene)
+        cols, rows = palette.cell_count(params)
+        if not (0 <= self.x < cols and 0 <= self.y < rows):
+            return (0.0, 0.0, 0.0, 1.0)
+        return palette.color_at(self.x, self.y, params)
+    except Exception:
         return (0.0, 0.0, 0.0, 1.0)
-    params = params_from_scene(scene)
-    cols, rows = palette.cell_count(params)
-    if not (0 <= self.x < cols and 0 <= self.y < rows):
-        return (0.0, 0.0, 0.0, 1.0)
-    return palette.color_at(self.x, self.y, params)
 
 
-class LPC_PickerResult(bpy.types.PropertyGroup):
-    """Shared result of all picker variants: the chosen cell (x, y).
+if bpy is not None:
+    class LPC_PickerResult(bpy.types.PropertyGroup):
+        """Shared result of all picker variants: the chosen cell (x, y).
 
-    Defaults to cell (0, 0) so a fresh file already has a usable brush
-    (no empty -1/-1 state); -1 stays a legal value the grid clamp can pass
-    through transiently. `x`/`y` are directly editable in the panel (the
-    XYField way of picking) and are clamped live to the grid.
-    """
+        Defaults to cell (0, 0) so a fresh file already has a usable brush
+        (no empty -1/-1 state); -1 stays a legal value the grid clamp can pass
+        through transiently. `x`/`y` are directly editable in the panel (the
+        XYField way of picking) and are clamped live to the grid.
+        """
 
-    x: bpy.props.IntProperty(name="X", default=0, min=-1, update=_clamp_result_xy)
-    y: bpy.props.IntProperty(name="Y", default=0, min=-1, update=_clamp_result_xy)
-    color: bpy.props.FloatVectorProperty(
-        name="Color", subtype="COLOR", size=4, min=0.0, max=1.0,
-        get=_result_color_get,  # read-only: derived, never stored
-        description="Color of the picked palette cell",
-        # NOTE: the swatch never shows the LITERAL colour -- Blender draws
-        # every UI colour button through the scene view transform (AgX by
-        # default), so linear white renders as grey. The stored value is
-        # correct (hover shows it); no property subtype bypasses the view
-        # transform. The modal picker grid shows the true colours.
-    )
+        x: bpy.props.IntProperty(name="X", default=0, min=-1, update=_clamp_result_xy)
+        y: bpy.props.IntProperty(name="Y", default=0, min=-1, update=_clamp_result_xy)
+        color: bpy.props.FloatVectorProperty(
+            name="Color", subtype="COLOR", size=4, min=0.0, max=1.0,
+            get=_result_color_get,  # read-only: derived, never stored
+            description="Color of the picked palette cell",
+            # NOTE: the swatch never shows the LITERAL colour -- Blender draws
+            # every UI colour button through the scene view transform (AgX by
+            # default), so linear white renders as grey. The stored value is
+            # correct (hover shows it); no property subtype bypasses the view
+            # transform. The modal picker grid shows the true colours.
+        )
 
 
 def params_from_scene(scene):

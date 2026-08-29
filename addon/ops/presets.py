@@ -1,4 +1,4 @@
-﻿# SPDX-FileCopyrightText: 2026 Frank Winter <https://www.frankwinter.com/>
+# SPDX-FileCopyrightText: 2026 Frank Winter <https://www.frankwinter.com/>
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # This file is part of Low Poly Colorizer (LPC). <https://github.com/wasdcat/low-poly-colorizer>
@@ -228,7 +228,6 @@ if bpy is not None:
             if n
         ]
         return ", ".join(parts) if parts else "nothing to import"
-        return preset
 
     def seed_default_presets(scene):
         """Populate a scene that has NO presets yet with the bundled

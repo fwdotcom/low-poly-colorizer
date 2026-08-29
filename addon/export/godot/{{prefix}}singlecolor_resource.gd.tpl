@@ -82,18 +82,34 @@ const PALETTE_SHADE: float = {{palette_shade}}
 
 ## Palette column, in the same numbering the picker and the shader's
 ## `lpc_palette_cell_x` use.
-@export_range(0, {{palette_cols_max}}) var palette_cell_x: int = 0
+@export_range(0, {{palette_cols_max}}) var palette_cell_x: int = 0:
+	set(value):
+		if palette_cell_x != value:
+			palette_cell_x = value
+			emit_changed()
 
 ## Palette row, in the same numbering the picker and the shader's
 ## `lpc_palette_cell_y` use.
-@export_range(0, {{palette_rows_max}}) var palette_cell_y: int = 0
+@export_range(0, {{palette_rows_max}}) var palette_cell_y: int = 0:
+	set(value):
+		if palette_cell_y != value:
+			palette_cell_y = value
+			emit_changed()
 
 ## Which preset supplies roughness / metallic / clearcoat / emission.
-@export var preset: Preset = Preset.{{preset_enum_first}}
+@export var preset: Preset = Preset.{{preset_enum_first}}:
+	set(value):
+		if preset != value:
+			preset = value
+			emit_changed()
 
 ## -1.0 keeps the preset's own emission; any other value overrides it. This is
 ## the lamp-on / lamp-off switch when two looks differ in nothing else.
-@export_range(-1.0, 1.0) var emission_override: float = -1.0
+@export_range(-1.0, 1.0) var emission_override: float = -1.0:
+	set(value):
+		if not is_equal_approx(emission_override, value):
+			emission_override = value
+			emit_changed()
 
 
 ## Push this look onto [param instance] -- a MeshInstance3D (or any other
