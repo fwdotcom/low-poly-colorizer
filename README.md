@@ -266,7 +266,7 @@ In the footer, choose an **export template set** on the left via the dropdown
 **Export button (⤓)** on the right. A folder dialog opens – the files are
 written into the chosen folder.
 
-For **Godot Materials**, nine files are produced:
+For **Godot Materials**, the following files are produced:
 
 - `README.md` – Godot-side import-settings notes (the two textures are data,
   not color – see the [texture import callouts](#11-godot-integration) below).
@@ -290,7 +290,7 @@ The export writes **only** these files. The geometry with its per-face data
 reaches Godot separately via the `.blend` import (see the next section).
 
 > **When do I need to re-export?** Only when something that ends up *in
-> these nine files* changed: preset **values** (sliders), the preset
+> the exported files* changed: preset **values** (sliders), the preset
 > **list** (add/delete/duplicate/import/load defaults – the preset count is
 > baked into the shader), palette **settings**, or the **globals**
 > (emission factor / clearcoat roughness). Re-assigning *which* preset a
@@ -313,8 +313,7 @@ reaches Godot separately via the `.blend` import (see the next section).
 Godot imports the `.blend` directly (via Blender's glTF export). This is how
 the look travels across:
 
-1. Place the **export folder** (all nine files above) and your **`.blend`**
-   into your Godot project.
+1. Place the **export folder** and your **`.blend`** into your Godot project.
 2. Godot imports the `.blend` as a scene. All painted faces form **one
    surface** (because they share a single material).
 3. In the imported mesh, select the surface and set its **Material Override**
