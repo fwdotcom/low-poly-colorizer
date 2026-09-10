@@ -83,7 +83,11 @@ if bpy is not None:
         a value edit never changes -- only the LUT pixel at that position
         does. Lazy import: model must not import ui at load time as a
         sibling cycle."""
+        if context is None or getattr(context, "scene", None) is None:
+            return
         from ..ui import preview_material
+
+        preview_material.update_preset_lut(context.scene)
 
     def _preset_name_changed(self, context):
         """A preset's name changed -> update the Geometry Node group's Menu

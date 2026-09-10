@@ -162,14 +162,19 @@ def unregister():
             handlers.remove(_redraw_on_undo_redo)
     if _seed_presets_on_load in bpy.app.handlers.load_post:
         bpy.app.handlers.load_post.remove(_seed_presets_on_load)
-    del bpy.types.WindowManager.lpc_picker_result
-    del bpy.types.Scene.lpc_palette_params
-    del bpy.types.Scene.lpc_export_fingerprint
-    del bpy.types.Scene.lpc_export_target
-    del bpy.types.Scene.lpc_globals
-    del bpy.types.Scene.lpc_preset_next_uid
-    del bpy.types.Scene.lpc_presets_active
-    del bpy.types.Scene.lpc_presets
+    if hasattr(bpy.types.WindowManager, "lpc_picker_result"):
+        del bpy.types.WindowManager.lpc_picker_result
+    for prop in (
+        "lpc_palette_params",
+        "lpc_export_fingerprint",
+        "lpc_export_target",
+        "lpc_globals",
+        "lpc_preset_next_uid",
+        "lpc_presets_active",
+        "lpc_presets",
+    ):
+        if hasattr(bpy.types.Scene, prop):
+            delattr(bpy.types.Scene, prop)
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
 
