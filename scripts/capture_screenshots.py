@@ -317,12 +317,12 @@ bpy.app.timers.register(on_timer, first_interval=0.5)
             p_draw = ImageDraw.Draw(panel_canvas)
 
             panel_sections = [
-                (1, 50, 82),   # 1: Farbauswahl & Picker
-                (2, 85, 112),  # 2: Selektions-Status
-                (3, 125, 288), # 3: Preset-Liste & Aktionen
-                (4, 296, 417), # 4: PBR-Regler
-                (5, 428, 460), # 5: Werkzeuge
-                (6, 484, 558), # 6: Export & Settings
+                (1, 50, 82),   # 1: Color selection & picker
+                (2, 85, 112),  # 2: Selection status
+                (3, 125, 288), # 3: Preset list & actions
+                (4, 296, 417), # 4: PBR sliders
+                (5, 428, 460), # 5: Tools
+                (6, 484, 558), # 6: Export & settings
             ]
 
             bx = pw + 6
@@ -354,7 +354,7 @@ bpy.app.timers.register(on_timer, first_interval=0.5)
             pal_canvas.paste(pal_cropped, (pad_left, pad_top))
             c_draw = ImageDraw.Draw(pal_canvas)
 
-            # A: Graustufenspalte
+            # A: Greyscale column
             x_g1 = pad_left + 4
             x_g2 = pad_left + 41
             y_top_br = pad_top - 6
@@ -366,7 +366,7 @@ bpy.app.timers.register(on_timer, first_interval=0.5)
             c_draw.line([(cx_a, y_top_br), (cx_a, cy_a + badge_r)], fill=line_col, width=2)
             draw_badge(c_draw, cx_a, cy_a, "A")
 
-            # B: Farbton-Spektrum
+            # B: Hue spectrum
             x_s1 = pad_left + 42
             x_s2 = pad_left + cw_raw - 4
             c_draw.line([(x_s1, y_top_br + 5), (x_s1, y_top_br)], fill=line_col, width=2)
@@ -377,7 +377,7 @@ bpy.app.timers.register(on_timer, first_interval=0.5)
             c_draw.line([(cx_b, y_top_br), (cx_b, cy_b + badge_r)], fill=line_col, width=2)
             draw_badge(c_draw, cx_b, cy_b, "B")
 
-            # C: Helligkeits- & Sättigungsverlauf
+            # C: Brightness & saturation gradient
             x_r = pad_left + cw_raw + 6
             y_r1 = pad_top + 4
             y_r2 = pad_top + ch_raw - 4
@@ -389,7 +389,7 @@ bpy.app.timers.register(on_timer, first_interval=0.5)
             c_draw.line([(x_r, cy_c), (cx_c - badge_r, cy_c)], fill=line_col, width=2)
             draw_badge(c_draw, cx_c, cy_c, "C")
 
-            # D: Aktive Zelle & Selektionsrahmen
+            # D: Active cell & selection frame
             target_x = pad_left + 4
             target_y = pad_top + ch_raw - 22
             cx_d = pad_left - 26
