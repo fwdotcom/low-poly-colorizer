@@ -1,5 +1,7 @@
 # Foreword
 
+![Low Poly Colorizer](images/lpc_logo.png)
+
 **Low Poly Colorizer (LPC)** is a Blender extension designed for fast, intuitive, and resource-efficient color and material styling of 3D models in low-poly aesthetics. Developed for game production at **WASDCAT Games**, it bridges the gap between rapid 3D prototyping in Blender and optimal draw-call performance in modern game engines such as **Godot 4**.
 
 ## The LPC Principle: References Instead of Material Chaos

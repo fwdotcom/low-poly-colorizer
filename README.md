@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="media/lpc_logo.png" alt="Low Poly Colorizer" width="180">
+</p>
+
 # Low Poly Colorizer
 
 ![Version](https://img.shields.io/badge/version-1.0.0-blue)
