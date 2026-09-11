@@ -8,10 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0] - 2026-09-11
 
 ### Added
-- **Interactive Palette Picker**: Modal GPU overlay in Blender 3D Viewport with real-time hover preview and face color sampling.
-- **Single-Material Architecture**: Multi-color and PBR variations encoded in two lightweight UV channels for minimal draw calls.
-- **PBR Preset Management**: Named presets for roughness, metallic, emission, and clearcoat with reference-count protection and dirty tracking.
-- **Geometry Nodes Integration**: Custom procedural node group (`LPC Set Material`) for procedural modifiers and asset pipelines.
-- **Engine Export**: 1-click export for Godot 4.x with automated shader and material template generation.
-- **User Documentation**: Comprehensive 12-page user manuals in English and German (`manual/`).
+- **Interactive Palette Picker**: GPU overlay in the Blender 3D Viewport with zoom and pan; clicking a cell paints the selection immediately.
+- **Single-Material Architecture**: All painted faces share one material. Each face references its palette cell and PBR preset via two UV channels – one surface per mesh instead of one material per color.
+- **PBR Preset Management**: Named presets for roughness, metallic, emission, and clearcoat with reference-count protection and JSON import/export.
+- **Painting Tools**: Assign, Sample, Select/Deselect by color and preset, and Fix UV Maps.
+- **Geometry Nodes Integration**: `LPC Set Material` node group to set palette cell and preset procedurally in Geometry Nodes modifiers.
+- **Engine Export**: Template-based export for Godot 4.x (shaders, materials, palette and preset textures, GDScript look resource); the Export button turns red when the export is out of date. Further engines can be added as template sets.
+- **User Documentation**: User manuals in English and German (`manual/`).
 
