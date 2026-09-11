@@ -48,6 +48,11 @@ def read_branch():
         )
         if result.returncode == 0 and result.stdout.strip():
             branch = result.stdout.strip()
+            # Detached HEAD (CI checkouts of a release tag or PR merge ref) has
+            # no branch name -- treat it like main, so no second "-HEAD" copy
+            # lands next to the release ZIP in dist/.
+            if branch == "HEAD":
+                return "main"
             return re.sub(r"[^A-Za-z0-9._-]+", "-", branch)
     except Exception:
         pass
