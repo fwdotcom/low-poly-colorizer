@@ -165,12 +165,12 @@ if bpy is not None:
         )
         tint: bpy.props.FloatProperty(
             name="Tint", default=constants.DEFAULT_PALETTE_TINT, min=0.0, max=1.0,
-            description="How much the top row is mixed toward white (0 = like the middle row, 1 = white)",
+            description="How much the lightest row (row 0) is mixed toward white (0 = like the middle row, 1 = white)",
             update=_palette_image_changed,
         )
         shade: bpy.props.FloatProperty(
             name="Shade", default=constants.DEFAULT_PALETTE_SHADE, min=0.0, max=1.0,
-            description="How much the bottom row is mixed toward black (0 = like the middle row, 1 = black)",
+            description="How much the darkest row (the last one) is mixed toward black (0 = like the middle row, 1 = black)",
             update=_palette_image_changed,
         )
 

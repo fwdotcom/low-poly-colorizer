@@ -59,7 +59,7 @@ enum Preset {
 ## bound [member palette_cell_x] is clamped to.
 const PALETTE_COLS: int = {{palette_cols}}
 
-## Rows in the grid, top (lightest) to bottom (darkest).
+## Rows in the grid, from row 0 (lightest) to the last row (darkest).
 const PALETTE_ROWS: int = {{palette_rows}}
 
 ## Whether column 0 is a white-to-black ramp instead of a hue. The remaining
@@ -73,10 +73,10 @@ const PALETTE_SATURATION: float = {{palette_saturation}}
 ## Brightness of the middle row (the base color).
 const PALETTE_BRIGHTNESS: float = {{palette_brightness}}
 
-## How far the topmost row is mixed toward white (0 = like the middle row).
+## How far the lightest row (row 0) is mixed toward white (0 = like the middle row).
 const PALETTE_TINT: float = {{palette_tint}}
 
-## How far the bottommost row is mixed toward black (0 = like the middle row).
+## How far the darkest row (the last one) is mixed toward black (0 = like the middle row).
 const PALETTE_SHADE: float = {{palette_shade}}
 
 
@@ -138,9 +138,9 @@ func apply_to(instance: GeometryInstance3D) -> void:
 ## Computed from the PALETTE_* constants above, the same construction the
 ## add-on's own palette uses: column 0 is a white-to-black ramp when the
 ## palette has a greyscale column, the remaining columns split the color wheel
-## evenly between them; the middle row is the base color, rows above it fan
-## toward white by up to [constant PALETTE_TINT], rows below toward black by
-## up to [constant PALETTE_SHADE].
+## evenly between them; the middle row is the base color, rows toward row 0
+## fan toward white by up to [constant PALETTE_TINT], rows toward the last row
+## toward black by up to [constant PALETTE_SHADE].
 ##
 ## Static, because a palette is one per export and not per look:
 ## [code]{{prefix_pascal}}SinglecolorResource.color_at(2, 3)[/code] works
@@ -158,7 +158,7 @@ func apply_to(instance: GeometryInstance3D) -> void:
 static func color_at(x: int, y: int) -> Color:
 	var cx := clampi(x, 0, PALETTE_COLS - 1)
 	var cy := clampi(y, 0, PALETTE_ROWS - 1)
-	# 0.0 = top row (lightest) .. 1.0 = bottom row (darkest); a single-row
+	# 0.0 = row 0 (lightest) .. 1.0 = last row (darkest); a single-row
 	# palette is all base color, hence the midpoint.
 	var t := float(cy) / float(PALETTE_ROWS - 1) if PALETTE_ROWS > 1 else 0.5
 
@@ -173,11 +173,11 @@ static func color_at(x: int, y: int) -> Color:
 	var saturation := PALETTE_SATURATION
 	var brightness := PALETTE_BRIGHTNESS
 	if t <= 0.5:
-		var row_factor := 1.0 - t / 0.5  # 1 = topmost .. 0 = middle
+		var row_factor := 1.0 - t / 0.5  # 1 = row 0 .. 0 = middle
 		saturation = PALETTE_SATURATION * (1.0 - PALETTE_TINT * row_factor)
 		brightness = PALETTE_BRIGHTNESS + (1.0 - PALETTE_BRIGHTNESS) * PALETTE_TINT * row_factor
 	else:
-		var row_factor := (t - 0.5) / 0.5  # 0 = middle .. 1 = bottommost
+		var row_factor := (t - 0.5) / 0.5  # 0 = middle .. 1 = last row
 		saturation = PALETTE_SATURATION + (1.0 - PALETTE_SATURATION) * PALETTE_SHADE * row_factor
 		brightness = PALETTE_BRIGHTNESS * (1.0 - PALETTE_SHADE * row_factor)
 

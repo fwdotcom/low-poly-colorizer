@@ -13,7 +13,7 @@ For offline workstations or pre-release builds:
 
 1. In Blender, navigate to **Edit ▸ Preferences ▸ Get Extensions** (or *Add-ons*).
 2. Click the menu icon (▾) in the top right corner and select **Install from Disk…**.
-3. Select the downloaded `low-poly-colorizer-x.y.z.zip` archive. The sidebar panel (**N-Panel ▸ LPC**) is immediately available.
+3. Select the downloaded `low_poly_colorizer-x.y.z.zip` archive. The sidebar panel (**N-Panel ▸ LPC**) is immediately available.
 
 ## Quickstart in 60 Seconds
 

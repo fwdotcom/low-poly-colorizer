@@ -1,6 +1,6 @@
 # Low Poly Colorizer — User Manual
 
-This directory contains the official **User Manual for Low Poly Colorizer (LPC)** in English. It is aimed at 3D artists, game developers, and technical artists who want to efficiently colorize 3D models in Blender and export them to game engines like Godot 4.
+This directory contains the official **User Manual for Low Poly Colorizer (LPC)** in English. It is aimed at 3D artists, game developers, and technical artists who want to efficiently colorize 3D models in Blender and export prepared materials and shaders to game engines like Godot 4.
 
 ---
 

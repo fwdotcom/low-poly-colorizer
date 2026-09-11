@@ -1,6 +1,6 @@
 # Low Poly Colorizer — Benutzerhandbuch
 
-Dieses Verzeichnis enthält das offizielle, deutschsprachige **Benutzerhandbuch für Low Poly Colorizer (LPC)**. Es richtet sich an 3D-Artists, Game-Entwickler und Technical Artists, die 3D-Modelle effizient in Blender gestalten und für Game-Engines wie Godot 4 bereitstellen möchten.
+Dieses Verzeichnis enthält das offizielle, deutschsprachige **Benutzerhandbuch für Low Poly Colorizer (LPC)**. Es richtet sich an 3D-Artists, Game-Entwickler und Technical Artists, die 3D-Modelle effizient in Blender gestalten und vorbereitete Materialien sowie Shader für Game-Engines wie Godot 4 bereitstellen möchten.
 
 ---
 

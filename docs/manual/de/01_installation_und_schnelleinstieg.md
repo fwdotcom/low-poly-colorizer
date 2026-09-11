@@ -13,7 +13,7 @@ Für Offline-Workstations oder Vorab-Releases:
 
 1. Öffnen Sie in Blender **Edit ▸ Preferences ▸ Get Extensions** (bzw. *Add-ons*).
 2. Klicken Sie oben rechts auf das Menü-Symbol (▾) und wählen Sie **Install from Disk…**.
-3. Wählen Sie das heruntergeladene Archiv `low-poly-colorizer-x.y.z.zip` aus. Das Bedienfeld (**N-Panel ▸ LPC**) ist sofort einsatzbereit.
+3. Wählen Sie das heruntergeladene Archiv `low_poly_colorizer-x.y.z.zip` aus. Das Bedienfeld (**N-Panel ▸ LPC**) ist sofort einsatzbereit.
 
 ## Schnelleinstieg in 60 Sekunden
 
