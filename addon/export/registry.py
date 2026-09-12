@@ -8,9 +8,11 @@
 
 One entry per export target ("template set"): a human label shown in the
 export dropdown mapped to a folder of `.tpl` files under `addon/export/`.
-Godot is just one target -- adding another engine is: drop a folder of `.tpl`
-templates under `addon/export/<dir>/` and add an entry here. No code change in
-the exporter.
+Godot is just one target -- supporting another engine means adding a template
+folder plus an entry here IN THE SOURCE REPOSITORY, shipped as a new add-on
+version. This is not a runtime extension point: the installed add-on directory
+is owned by Blender and is never written to, neither by the add-on nor by the
+user.
 
 The exporter (exporter.py) renders EVERY `.tpl` in the chosen set's folder
 into the chosen output directory, substituting the scene's material
