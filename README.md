@@ -34,6 +34,14 @@ Complete, detailed documentation covering all features, shortcuts, shader integr
 
 ---
 
+## Demo Project
+
+A separate repository shows Low Poly Colorizer material usage in action:
+
+- 🎮 **[low-poly-colorizer-demo](https://github.com/wasdcat/low-poly-colorizer-demo)**
+
+---
+
 ## Installation
 
 Requirement: **Blender 4.2 LTS or newer** (Extension system).
